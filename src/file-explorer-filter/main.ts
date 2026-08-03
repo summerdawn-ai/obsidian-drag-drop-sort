@@ -48,6 +48,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	private buttons = new Map<HTMLElement, HTMLElement>();
 	private refreshTimer: number | null = null;
 	private setupTimer: number | null = null;
+	private layoutInvalidationTimer: number | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -86,6 +87,9 @@ export default class FileExplorerFilterPlugin extends Plugin {
 		}
 		if (this.setupTimer !== null) {
 			window.clearTimeout(this.setupTimer);
+		}
+		if (this.layoutInvalidationTimer !== null) {
+			window.clearTimeout(this.layoutInvalidationTimer);
 		}
 
 		for (const observer of this.observers.values()) {
@@ -260,7 +264,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 		await this.saveSettings();
 		this.refresh();
 		if (scopeChanged) {
-			this.invalidateExplorerLayout();
+			this.scheduleLayoutInvalidation();
 		}
 	}
 
@@ -322,6 +326,17 @@ export default class FileExplorerFilterPlugin extends Plugin {
 		}, 50);
 	}
 
+	private scheduleLayoutInvalidation(): void {
+		if (this.layoutInvalidationTimer !== null) {
+			window.clearTimeout(this.layoutInvalidationTimer);
+		}
+
+		this.layoutInvalidationTimer = window.setTimeout(() => {
+			this.layoutInvalidationTimer = null;
+			this.invalidateExplorerLayout();
+		}, 100);
+	}
+
 	private invalidateExplorerLayout(): void {
 		for (const leaf of this.getExplorerLeaves()) {
 			const view = leaf.view as unknown as FileExplorerView;
@@ -332,9 +347,11 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	}
 
 	private refresh(): void {
+		let layoutChanged = false;
 		for (const leaf of this.getExplorerLeaves()) {
 			const view = leaf.view as unknown as FileExplorerView;
-			this.filterExplorer(view.containerEl);
+			layoutChanged =
+				this.filterExplorer(view.containerEl) || layoutChanged;
 		}
 
 		for (const button of this.buttons.values()) {
@@ -352,9 +369,16 @@ export default class FileExplorerFilterPlugin extends Plugin {
 					this.filterSettings.hideMatchingNames,
 			);
 		}
+
+		if (layoutChanged) {
+			// Wait for the current batch of explorer rows to render before
+			// invalidating virtual-scroll measurements.
+			this.scheduleLayoutInvalidation();
+		}
 	}
 
-	private filterExplorer(container: HTMLElement): void {
+	private filterExplorer(container: HTMLElement): boolean {
+		let layoutChanged = false;
 		const titles = container.querySelectorAll<HTMLElement>(
 			".nav-file-title[data-path], .nav-folder-title[data-path]",
 		);
@@ -373,8 +397,14 @@ export default class FileExplorerFilterPlugin extends Plugin {
 				this.filterSettings.nameFilterEnabled &&
 				this.filterSettings.hideMatchingNames &&
 				this.nameContainsFilter(path);
-			treeItem.toggleClass(HIDDEN_CLASS, hiddenByScope || hiddenByName);
+			const shouldHide = hiddenByScope || hiddenByName;
+			if (treeItem.classList.contains(HIDDEN_CLASS) !== shouldHide) {
+				treeItem.toggleClass(HIDDEN_CLASS, shouldHide);
+				layoutChanged = true;
+			}
 		}
+
+		return layoutChanged;
 	}
 
 	private isPathInScope(path: string): boolean {
