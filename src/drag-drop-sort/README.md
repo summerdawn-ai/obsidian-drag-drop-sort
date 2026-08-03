@@ -1,4 +1,4 @@
-# Custom Sort
+# Drag & Drop Sort
 
 Drag-and-drop reordering for the Obsidian file explorer. Files and folders are freely interspersed — designed for OneNote-style folder notes where a folder is just a file with children.
 
@@ -26,10 +26,10 @@ Drag-and-drop reordering for the Obsidian file explorer. Files and folders are f
 ```bash
 # Clone or copy the plugin into your vault
 cp dist/main.js manifest.json styles.css \
-   .obsidian/plugins/custom-sort/
+   .obsidian/plugins/drag-drop-sort/
 ```
 
-Then enable **Custom Sort** in Settings → Community plugins.
+Then enable **Drag & Drop Sort** in Settings → Community plugins.
 
 **If you also use the `Folder Sort Rules` plugin, disable it first** — both plugins patch the same explorer method and will conflict.
 
@@ -45,7 +45,7 @@ npm run build  # production build
 
 ## Data format
 
-The plugin stores one simple object in `.obsidian/plugins/custom-sort/data.json`:
+The plugin stores one simple object in `.obsidian/plugins/drag-drop-sort/data.json`:
 
 ```json
 {
@@ -73,7 +73,7 @@ Only folders you've actually reordered appear in this file. The order array cont
 
 ## Credits
 
-Built from scratch but inspired by the architecture of [obsidian-folder-sort-rules](https://github.com/wepe/obsidian-folder-sort-rules). The monkey-patching approach for `getSortedFolderItems` and the per-item drag handler pattern are adapted from that codebase.
+Drag & Drop Sort is an independent implementation based on the architecture and patterns of [Folder Sort Rules](https://github.com/wepee/obsidian-folder-sort-rules) by Adam. In particular, the `getSortedFolderItems` monkey-patch and per-item drag handler pattern are adapted from that MIT-licensed codebase.
 
 ## License
 

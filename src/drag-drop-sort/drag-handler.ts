@@ -84,14 +84,14 @@ export class DragHandler {
 	}
 
 	private setupItemDrag(el: HTMLElement, item: any): void {
-		el.addClass('custom-sort-draggable');
+		el.addClass('drag-drop-sort-draggable');
 
 		const file: TAbstractFile = item.file;
 
 		const onDragStart = (e: DragEvent) => {
 			this.state.draggedEl = el;
 			this.state.draggedFile = file;
-			el.addClass('custom-sort-dragging');
+			el.addClass('drag-drop-sort-dragging');
 			if (e.dataTransfer) {
 				e.dataTransfer.effectAllowed = 'move';
 				e.dataTransfer.setData('text/plain', file.path);
@@ -99,7 +99,7 @@ export class DragHandler {
 		};
 
 		const onDragEnd = () => {
-			el.removeClass('custom-sort-dragging');
+			el.removeClass('drag-drop-sort-dragging');
 			this.removePlaceholder();
 			this.clearFolderDropTarget();
 			this.state.draggedEl = null;
@@ -137,7 +137,7 @@ export class DragHandler {
 
 			this.removePlaceholder();
 			this.state.placeholder = createDiv({
-				cls: 'custom-sort-drop-indicator',
+				cls: 'drag-drop-sort-drop-indicator',
 			});
 
 			if (e.clientY < midY) {
@@ -257,7 +257,7 @@ export class DragHandler {
 			el.removeEventListener('dragend', onDragEnd);
 			el.removeEventListener('dragover', onDragOver);
 			el.removeEventListener('drop', onDrop);
-			el.removeClass('custom-sort-draggable');
+			el.removeClass('drag-drop-sort-draggable');
 		});
 	}
 
@@ -283,13 +283,13 @@ export class DragHandler {
 	private setFolderDropTarget(el: HTMLElement, folder: TFolder): void {
 		if (this.state.folderDropTarget?.el === el) return; // already active
 		this.clearFolderDropTarget();
-		el.addClass('custom-sort-drop-folder');
+		el.addClass('drag-drop-sort-drop-folder');
 		this.state.folderDropTarget = { el, folder };
 	}
 
 	private clearFolderDropTarget(): void {
 		if (this.state.folderDropTarget) {
-			this.state.folderDropTarget.el.removeClass('custom-sort-drop-folder');
+			this.state.folderDropTarget.el.removeClass('drag-drop-sort-drop-folder');
 			this.state.folderDropTarget = null;
 		}
 	}

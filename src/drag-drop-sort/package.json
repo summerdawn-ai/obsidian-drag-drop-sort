@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-custom-sort",
+	"name": "obsidian-drag-drop-sort",
 	"version": "0.12.0-alpha",
 	"description": "Drag & drop to reorder files and folders interspersed in the Obsidian file explorer.",
 	"main": "dist/main.js",
@@ -8,7 +8,7 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
 	},
 	"keywords": [],
-	"author": "",
+	"author": "summerdawn.ai",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
