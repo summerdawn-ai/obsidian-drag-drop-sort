@@ -24,6 +24,7 @@ interface StoredFileExplorerFilterSettings
 
 interface FileExplorerView {
 	containerEl: HTMLElement;
+	// These are internal Obsidian APIs, so every level is optional across versions.
 	tree?: {
 		infinityScroll?: {
 			invalidateAll?: () => void;
@@ -149,6 +150,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			activeContainers.add(container);
 
 			if (!this.buttons.has(container)) {
+				// On mobile the sidebar may render after layout-ready, so the toolbar
+				// can be absent on the first setup attempt.
 				const toolbar = container.querySelector<HTMLElement>(
 					".nav-header .nav-buttons-container",
 				);
@@ -175,6 +178,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			}
 
 			if (!this.observers.has(container)) {
+				// Re-run setup when Obsidian creates the toolbar or rebuilds tree rows.
 				const observer = new MutationObserver(() => {
 					this.scheduleSetup();
 					this.scheduleRefresh();
@@ -321,6 +325,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	private invalidateExplorerLayout(): void {
 		for (const leaf of this.getExplorerLeaves()) {
 			const view = leaf.view as unknown as FileExplorerView;
+			// display:none changes the visual rows but not Obsidian's cached
+			// virtual-scroll measurements; invalidate those measurements explicitly.
 			view.tree?.infinityScroll?.invalidateAll?.();
 		}
 	}
@@ -360,6 +366,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 				continue;
 			}
 
+			// Keep rows in the DOM and hide them with CSS so ordering and other
+			// File Explorer plugins continue to operate on the same tree.
 			const hiddenByScope = !this.isPathInScope(path);
 			const hiddenByName =
 				this.filterSettings.nameFilterEnabled &&
@@ -375,6 +383,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			return true;
 		}
 
+		// Keep the selected folder, its descendants, and its ancestor chain visible.
 		return (
 			path === scope ||
 			path.startsWith(`${scope}/`) ||
@@ -383,6 +392,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	}
 
 	private nameContainsFilter(path: string): boolean {
+		// Match the visible file or folder name, not the complete parent path.
 		const name = path.split("/").pop() ?? path;
 		return name
 			.toLocaleLowerCase()
