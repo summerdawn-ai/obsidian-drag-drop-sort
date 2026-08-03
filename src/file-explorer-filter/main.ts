@@ -41,6 +41,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	private observers = new Map<HTMLElement, MutationObserver>();
 	private buttons = new Map<HTMLElement, HTMLElement>();
 	private refreshTimer: number | null = null;
+	private setupTimer: number | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -76,6 +77,9 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	onunload(): void {
 		if (this.refreshTimer !== null) {
 			window.clearTimeout(this.refreshTimer);
+		}
+		if (this.setupTimer !== null) {
+			window.clearTimeout(this.setupTimer);
 		}
 
 		for (const observer of this.observers.values()) {
@@ -135,7 +139,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			const view = leaf.view as unknown as FileExplorerView;
 			const container = view.containerEl;
 			if (!container) {
-				throw new Error("The current file explorer does not expose its container.");
+				continue;
 			}
 			activeContainers.add(container);
 
@@ -143,32 +147,33 @@ export default class FileExplorerFilterPlugin extends Plugin {
 				const toolbar = container.querySelector<HTMLElement>(
 					".nav-header .nav-buttons-container",
 				);
-				if (!toolbar) {
-					throw new Error("Could not find the file explorer toolbar.");
+				if (toolbar) {
+					const button = document.createElement("div");
+					button.addClass("clickable-icon", "nav-action-button");
+					button.addClass(BUTTON_CLASS);
+					button.setAttribute("aria-label", "Filter file explorer");
+					button.setAttribute("role", "button");
+					button.tabIndex = 0;
+					setIcon(button, "list-filter");
+					this.registerDomEvent(button, "click", (event) =>
+						this.showFilterMenu(event),
+					);
+					this.registerDomEvent(button, "keydown", (event) => {
+						if (event.key === "Enter" || event.key === " ") {
+							event.preventDefault();
+							this.showFilterMenu();
+						}
+					});
+					toolbar.appendChild(button);
+					this.buttons.set(container, button);
 				}
-
-				const button = document.createElement("div");
-				button.addClass("clickable-icon", "nav-action-button");
-				button.addClass(BUTTON_CLASS);
-				button.setAttribute("aria-label", "Filter file explorer");
-				button.setAttribute("role", "button");
-				button.tabIndex = 0;
-				setIcon(button, "list-filter");
-				this.registerDomEvent(button, "click", (event) =>
-					this.showFilterMenu(event),
-				);
-				this.registerDomEvent(button, "keydown", (event) => {
-					if (event.key === "Enter" || event.key === " ") {
-						event.preventDefault();
-						this.showFilterMenu();
-					}
-				});
-				toolbar.appendChild(button);
-				this.buttons.set(container, button);
 			}
 
 			if (!this.observers.has(container)) {
-				const observer = new MutationObserver(() => this.scheduleRefresh());
+				const observer = new MutationObserver(() => {
+					this.scheduleSetup();
+					this.scheduleRefresh();
+				});
 				observer.observe(container, { childList: true, subtree: true });
 				this.observers.set(container, observer);
 			}
@@ -290,6 +295,17 @@ export default class FileExplorerFilterPlugin extends Plugin {
 		this.refreshTimer = window.setTimeout(() => {
 			this.refreshTimer = null;
 			this.refresh();
+		}, 50);
+	}
+
+	private scheduleSetup(): void {
+		if (this.setupTimer !== null) {
+			window.clearTimeout(this.setupTimer);
+		}
+
+		this.setupTimer = window.setTimeout(() => {
+			this.setupTimer = null;
+			this.setupExplorerViewsSafely();
 		}, 50);
 	}
 
