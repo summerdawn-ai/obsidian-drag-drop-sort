@@ -24,6 +24,11 @@ interface StoredFileExplorerFilterSettings
 
 interface FileExplorerView {
 	containerEl: HTMLElement;
+	tree?: {
+		infinityScroll?: {
+			invalidateAll?: () => void;
+		};
+	};
 }
 
 const DEFAULT_SETTINGS: FileExplorerFilterSettings = {
@@ -246,9 +251,13 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	}
 
 	private async setScope(scope: string | null): Promise<void> {
+		const scopeChanged = this.filterSettings.scope !== scope;
 		this.filterSettings.scope = scope;
 		await this.saveSettings();
 		this.refresh();
+		if (scopeChanged) {
+			this.invalidateExplorerLayout();
+		}
 	}
 
 	async setNameFilterEnabled(enabled: boolean): Promise<void> {
@@ -307,6 +316,13 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			this.setupTimer = null;
 			this.setupExplorerViewsSafely();
 		}, 50);
+	}
+
+	private invalidateExplorerLayout(): void {
+		for (const leaf of this.getExplorerLeaves()) {
+			const view = leaf.view as unknown as FileExplorerView;
+			view.tree?.infinityScroll?.invalidateAll?.();
+		}
 	}
 
 	private refresh(): void {
