@@ -210,12 +210,12 @@ export class DragHandler {
 		};
 
 		const onDrop = async (e: DragEvent) => {
-			if (!this.state.draggedFile) return;
-			if (this.isSameFile(this.state.draggedFile, file)) return;
+		if (!this.state.draggedFile) return;
+		if (this.isSameFile(this.state.draggedFile, file)) return;
 
-			const rect = el.getBoundingClientRect();
-			const insertBefore = e.clientY < rect.top + rect.height / 2;
-			await this.handleDrop(e, el, file, insertBefore);
+		const rect = el.getBoundingClientRect();
+		const insertBefore = e.clientY < rect.top + rect.height / 2;
+		await this.handleDrop(e, el, file, insertBefore);
 		};
 
 		el.addEventListener('dragstart', onDragStart);
@@ -338,10 +338,13 @@ export class DragHandler {
 		}
 
 		if (file instanceof TFolder && this.isFolderEmptyOrCollapsed(file)) {
+
 			this.removePlaceholder();
 			this.setFolderDropTarget(el, file);
 			return;
 		}
+
+		if (!this.canDropOnTarget(this.state.draggedFile, file)) return;
 
 		this.clearFolderDropTarget();
 		const rect = el.getBoundingClientRect();
@@ -406,6 +409,7 @@ export class DragHandler {
 		if (this.state.folderDropTarget !== null) {
 			const targetFolder = this.state.folderDropTarget.folder;
 
+			if (!this.canDropOnTarget(draggedFile, file)) return;
 			if (!this.canMoveToParent(draggedFile, targetFolder.path)) return;
 
 			if (sourceParent !== targetFolder.path) {
