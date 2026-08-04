@@ -44,6 +44,103 @@ export class DragHandler {
 		const fileItems: Record<string, any> = explorerView.fileItems;
 		if (!fileItems) return;
 
+		const explorerEl = explorerView.containerEl?.querySelector(
+			'.nav-files-container'
+		) as HTMLElement | null;
+		if (explorerEl) {
+			const onExplorerDragOver = (e: DragEvent) => {
+				if (!this.state.draggedFile) return;
+
+				const rowTarget = this.resolveRowTarget(e);
+				if (rowTarget) {
+					this.handleDragOver(e, rowTarget.el, rowTarget.file);
+					return;
+				}
+
+				const target = this.resolveGapTarget(e);
+				if (!target) return;
+
+				if (
+					this.isSameFile(this.state.draggedFile, target.file) ||
+					!this.canDropOnTarget(this.state.draggedFile, target.file)
+				) {
+					this.suppressInvalidDrag(e);
+					return;
+				}
+
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+				this.showPlaceholder(target.el, target.insertBefore);
+			};
+
+			const onExplorerDragEnter = (e: DragEvent) => {
+				if (!this.state.draggedFile) return;
+
+				const rowTarget = this.resolveRowTarget(e);
+				if (rowTarget) {
+					this.handleDragOver(e, rowTarget.el, rowTarget.file);
+					return;
+				}
+
+				const target = this.resolveGapTarget(e);
+				if (!target) return;
+
+				if (
+					this.isSameFile(this.state.draggedFile, target.file) ||
+					!this.canDropOnTarget(this.state.draggedFile, target.file)
+				) {
+					this.suppressInvalidDrag(e);
+					return;
+				}
+
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+				this.showPlaceholder(target.el, target.insertBefore);
+			};
+
+			const onExplorerDrop = async (e: DragEvent) => {
+				if (!this.state.draggedFile) return;
+
+				const rowTarget = this.resolveRowTarget(e);
+				if (rowTarget) {
+					const rect = rowTarget.el.getBoundingClientRect();
+					await this.handleDrop(
+						e,
+						rowTarget.el,
+						rowTarget.file,
+						e.clientY < rect.top + rect.height / 2
+					);
+					return;
+				}
+
+				const target = this.resolveGapTarget(e);
+				if (!target) return;
+
+				if (
+					this.isSameFile(this.state.draggedFile, target.file) ||
+					!this.canDropOnTarget(this.state.draggedFile, target.file)
+				) {
+					this.suppressInvalidDrag(e);
+					return;
+				}
+
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				await this.handleDrop(e, target.el, target.file, target.insertBefore);
+			};
+
+			explorerEl.addEventListener('dragenter', onExplorerDragEnter, true);
+			explorerEl.addEventListener('dragover', onExplorerDragOver, true);
+			explorerEl.addEventListener('drop', onExplorerDrop, true);
+			this.cleanupFns.push(() => {
+				explorerEl.removeEventListener('dragenter', onExplorerDragEnter, true);
+				explorerEl.removeEventListener('dragover', onExplorerDragOver, true);
+				explorerEl.removeEventListener('drop', onExplorerDrop, true);
+			});
+		}
+
 		// Build visible-items map from currently rendered rows.
 		this.visibleByParent.clear();
 		for (const item of Object.values(fileItems)) {
@@ -91,6 +188,8 @@ export class DragHandler {
 		const onDragStart = (e: DragEvent) => {
 			this.state.draggedEl = el;
 			this.state.draggedFile = file;
+			this.removePlaceholder();
+			this.clearFolderDropTarget();
 			el.addClass('drag-drop-sort-dragging');
 			if (e.dataTransfer) {
 				e.dataTransfer.effectAllowed = 'move';
@@ -107,116 +206,213 @@ export class DragHandler {
 		};
 
 		const onDragOver = (e: DragEvent) => {
-			if (!this.state.draggedFile) return;
-			if (this.state.draggedFile === file) return;
-
-			// Own drag behavior entirely to avoid native expand/move conflicts.
-			e.preventDefault();
-			e.stopPropagation();
-
-			if (e.dataTransfer) {
-				e.dataTransfer.dropEffect = 'move';
-			}
-
-			// ── Empty/collapsed folder: treat the folder row itself as a drop zone ──
-			if (file instanceof TFolder && this.isFolderEmptyOrCollapsed(file)) {
-				if (!this.canDropOnTarget(this.state.draggedFile, file)) return;
-
-				this.removePlaceholder();
-				this.setFolderDropTarget(el, file);
-				return;
-			}
-
-			// ── Normal between-row indicator ──
-			if (!this.canDropOnTarget(this.state.draggedFile, file)) return;
-
-			this.clearFolderDropTarget();
-
-			const rect = el.getBoundingClientRect();
-			const midY = rect.top + rect.height / 2;
-
-			this.removePlaceholder();
-			this.state.placeholder = createDiv({
-				cls: 'drag-drop-sort-drop-indicator',
-			});
-
-			if (e.clientY < midY) {
-				el.parentElement?.insertBefore(this.state.placeholder, el);
-			} else {
-				el.parentElement?.insertBefore(this.state.placeholder, el.nextSibling);
-			}
+			this.handleDragOver(e, el, file);
 		};
 
 		const onDrop = async (e: DragEvent) => {
 			if (!this.state.draggedFile) return;
-			if (this.state.draggedFile === file) return;
-
-			e.preventDefault();
-			e.stopPropagation();
-			this.removePlaceholder();
-
-			const draggedFile = this.state.draggedFile;
-			const draggedName = draggedFile.name;
-			const sourceParent = draggedFile.parent?.path ?? '';
-
-			// ── Drop onto empty/collapsed folder header ──
-			if (this.state.folderDropTarget !== null) {
-				const targetFolder = this.state.folderDropTarget.folder;
-
-				if (!this.canDropOnTarget(draggedFile, file)) return;
-				if (!this.canMoveToParent(draggedFile, targetFolder.path)) return;
-
-				// Insert at position 0 in the target folder
-				if (sourceParent !== targetFolder.path) {
-					const destinationPath = targetFolder.path
-						? `${targetFolder.path}/${draggedName}`
-						: draggedName;
-
-					const oldDraggedPath = draggedFile.path;
-
-					this.plugin.beginInternalMove();
-					try {
-						await this.plugin.app.fileManager.renameFile(
-							draggedFile,
-							destinationPath
-						);
-					} catch {
-						return;
-					} finally {
-						this.plugin.endInternalMove();
-					}
-
-					if (draggedFile instanceof TFolder) {
-						this.remapFolderOrderKeys(oldDraggedPath, draggedFile.path);
-					}
-				}
-
-				this.applyReorderToEmptyFolder(sourceParent, targetFolder.path, draggedName);
-				this.clearFolderDropTarget();
-
-				await this.plugin.saveSettings();
-				this.cleanupStaleOrders();
-				return;
-			}
-
-			// ── Normal between-row drop ──
-			if (!this.canDropOnTarget(this.state.draggedFile, file)) return;
-
-			this.clearFolderDropTarget();
-
-			const destinationParent = file.parent?.path ?? '';
+			if (this.isSameFile(this.state.draggedFile, file)) return;
 
 			const rect = el.getBoundingClientRect();
-			const midY = rect.top + rect.height / 2;
-			const insertBefore = e.clientY < midY;
+			const insertBefore = e.clientY < rect.top + rect.height / 2;
+			await this.handleDrop(e, el, file, insertBefore);
+		};
 
-			if (sourceParent !== destinationParent) {
-				if (!this.canMoveToParent(draggedFile, destinationParent)) return;
-				const oldDraggedPath = draggedFile.path;
+		el.addEventListener('dragstart', onDragStart);
+		el.addEventListener('dragend', onDragEnd);
+		// Run before Obsidian's row handlers so folder rows cannot claim the drop.
+		el.addEventListener('dragover', onDragOver, true);
+		el.addEventListener('drop', onDrop, true);
 
-				const destinationPath = destinationParent
-					? `${destinationParent}/${draggedName}`
+		this.cleanupFns.push(() => {
+			el.removeEventListener('dragstart', onDragStart);
+			el.removeEventListener('dragend', onDragEnd);
+			el.removeEventListener('dragover', onDragOver, true);
+			el.removeEventListener('drop', onDrop, true);
+			el.removeClass('drag-drop-sort-draggable');
+		});
+	}
+
+	private resolveRowTarget(
+		e: DragEvent
+	): { el: HTMLElement; file: TAbstractFile } | null {
+		const target = e.target instanceof Element ? e.target : null;
+		const el = target?.closest('.tree-item-self');
+		if (!(el instanceof HTMLElement)) return null;
+
+		const row = el.closest('.tree-item');
+		if (!(row instanceof HTMLElement)) return null;
+
+		const file = this.getFileForRow(row);
+		return file ? { el, file } : null;
+	}
+
+	private resolveGapTarget(
+		e: DragEvent
+	): {
+		row: HTMLElement;
+		el: HTMLElement;
+		file: TAbstractFile;
+		insertBefore: boolean;
+	} | null {
+		const placeholder = this.state.placeholder;
+		if (placeholder?.parentElement) {
+			const next = placeholder.nextElementSibling;
+			const previous = placeholder.previousElementSibling;
+			const row =
+				next instanceof HTMLElement && next.classList.contains('tree-item')
+					? next
+					: previous instanceof HTMLElement &&
+						  previous.classList.contains('tree-item')
+						? previous
+						: null;
+			if (row) {
+				const file = this.getFileForRow(row);
+				if (file) {
+					return {
+						row,
+						el: row.querySelector('.tree-item-self') as HTMLElement,
+						file,
+						insertBefore: row === next,
+					};
+				}
+			}
+		}
+
+		const target = e.target instanceof Element ? e.target : null;
+		const children = target?.closest('.tree-item-children');
+		if (!children) return null;
+
+		const rows = Array.from(children.children).filter(
+			(child): child is HTMLElement =>
+				child instanceof HTMLElement && child.classList.contains('tree-item')
+		);
+		for (const row of rows) {
+			const self = row.querySelector('.tree-item-self');
+			if (!(self instanceof HTMLElement)) continue;
+			const rect = self.getBoundingClientRect();
+			if (e.clientY < rect.top + rect.height / 2) {
+				const file = this.getFileForRow(row);
+				const el = row.querySelector('.tree-item-self');
+				return file && el instanceof HTMLElement
+					? { row, el, file, insertBefore: true }
+					: null;
+			}
+		}
+
+		const row = rows.at(-1);
+		if (!row) return null;
+		const file = this.getFileForRow(row);
+		const el = row.querySelector('.tree-item-self');
+		return file && el instanceof HTMLElement
+			? { row, el, file, insertBefore: false }
+			: null;
+	}
+
+	private getFileForRow(row: HTMLElement): TAbstractFile | null {
+		const path = row.querySelector('.tree-item-self')?.getAttribute('data-path');
+		const file = path ? this.plugin.app.vault.getAbstractFileByPath(path) : null;
+		return file ?? null;
+	}
+
+	private handleDragOver(
+		e: DragEvent,
+		el: HTMLElement,
+		file: TAbstractFile
+	): void {
+		if (!this.state.draggedFile) return;
+
+		e.preventDefault();
+		e.stopImmediatePropagation();
+
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+
+		if (
+			this.isSameFile(this.state.draggedFile, file) ||
+			!this.canDropOnTarget(this.state.draggedFile, file)
+		) {
+			this.removePlaceholder();
+			this.clearFolderDropTarget();
+			if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+			return;
+		}
+
+		if (file instanceof TFolder && this.isFolderEmptyOrCollapsed(file)) {
+			this.removePlaceholder();
+			this.setFolderDropTarget(el, file);
+			return;
+		}
+
+		this.clearFolderDropTarget();
+		const rect = el.getBoundingClientRect();
+		this.showPlaceholder(el, e.clientY < rect.top + rect.height / 2);
+	}
+
+	private suppressInvalidDrag(e: DragEvent): void {
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		this.removePlaceholder();
+		this.clearFolderDropTarget();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+	}
+
+	private showPlaceholder(row: HTMLElement, insertBefore: boolean): void {
+		this.clearFolderDropTarget();
+
+		const existing = this.state.placeholder;
+		const alreadyInPosition =
+			existing?.parentElement === row.parentElement &&
+			(insertBefore
+				? existing?.nextElementSibling === row
+				: existing?.previousElementSibling === row);
+		if (alreadyInPosition) return;
+
+		this.removePlaceholder();
+		this.state.placeholder = createDiv({
+			cls: 'drag-drop-sort-drop-indicator',
+		});
+		row.parentElement?.insertBefore(
+			this.state.placeholder,
+			insertBefore ? row : row.nextSibling
+		);
+	}
+
+	private async handleDrop(
+		e: DragEvent,
+		el: HTMLElement,
+		file: TAbstractFile,
+		insertBefore: boolean
+	): Promise<void> {
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		this.removePlaceholder();
+
+		const draggedFile = this.state.draggedFile;
+		if (!draggedFile) return;
+
+		const draggedName = draggedFile.name;
+		const sourceParent = draggedFile.parent?.path ?? '';
+
+		if (
+			this.isSameFile(draggedFile, file) ||
+			!this.canDropOnTarget(draggedFile, file)
+		) {
+			this.clearFolderDropTarget();
+			if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+			return;
+		}
+
+		// ── Drop onto empty/collapsed folder header ──
+		if (this.state.folderDropTarget !== null) {
+			const targetFolder = this.state.folderDropTarget.folder;
+
+			if (!this.canMoveToParent(draggedFile, targetFolder.path)) return;
+
+			if (sourceParent !== targetFolder.path) {
+				const destinationPath = targetFolder.path
+					? `${targetFolder.path}/${draggedName}`
 					: draggedName;
+				const oldDraggedPath = draggedFile.path;
 
 				this.plugin.beginInternalMove();
 				try {
@@ -235,30 +431,50 @@ export class DragHandler {
 				}
 			}
 
-			this.applyReorder(
-				sourceParent,
-				destinationParent,
-				draggedName,
-				file.name,
-				insertBefore
-			);
-
+			this.applyReorderToEmptyFolder(sourceParent, targetFolder.path, draggedName);
+			this.clearFolderDropTarget();
 			await this.plugin.saveSettings();
 			this.cleanupStaleOrders();
-		};
+			return;
+		}
 
-		el.addEventListener('dragstart', onDragStart);
-		el.addEventListener('dragend', onDragEnd);
-		el.addEventListener('dragover', onDragOver);
-		el.addEventListener('drop', onDrop);
+		this.clearFolderDropTarget();
+		const destinationParent = file.parent?.path ?? '';
 
-		this.cleanupFns.push(() => {
-			el.removeEventListener('dragstart', onDragStart);
-			el.removeEventListener('dragend', onDragEnd);
-			el.removeEventListener('dragover', onDragOver);
-			el.removeEventListener('drop', onDrop);
-			el.removeClass('drag-drop-sort-draggable');
-		});
+		if (sourceParent !== destinationParent) {
+			if (!this.canMoveToParent(draggedFile, destinationParent)) return;
+			const oldDraggedPath = draggedFile.path;
+			const destinationPath = destinationParent
+				? `${destinationParent}/${draggedName}`
+				: draggedName;
+
+			this.plugin.beginInternalMove();
+			try {
+				await this.plugin.app.fileManager.renameFile(
+					draggedFile,
+					destinationPath
+				);
+			} catch {
+				return;
+			} finally {
+				this.plugin.endInternalMove();
+			}
+
+			if (draggedFile instanceof TFolder) {
+				this.remapFolderOrderKeys(oldDraggedPath, draggedFile.path);
+			}
+		}
+
+		this.applyReorder(
+			sourceParent,
+			destinationParent,
+			draggedName,
+			file.name,
+			insertBefore
+		);
+
+		await this.plugin.saveSettings();
+		this.cleanupStaleOrders();
 	}
 
 	private canDropOnTarget(dragged: TAbstractFile, target: TAbstractFile): boolean {
@@ -268,6 +484,13 @@ export class DragHandler {
 		if (destinationParent.startsWith(dragged.path + '/')) return false;
 
 		return true;
+	}
+
+	private isSameFile(
+		first: TAbstractFile | null,
+		second: TAbstractFile | null
+	): boolean {
+		return first !== null && second !== null && first.path === second.path;
 	}
 
 	// ── Empty / collapsed folder drop target ─────────────────
@@ -484,9 +707,18 @@ export class DragHandler {
 			this.state.placeholder.remove();
 			this.state.placeholder = null;
 		}
+		for (const indicator of Array.from(
+			document.querySelectorAll('.drag-drop-sort-drop-indicator')
+		)) {
+			indicator.remove();
+		}
 	}
 
 	cleanup(): void {
+		this.removePlaceholder();
+		this.clearFolderDropTarget();
+		this.state.draggedEl = null;
+		this.state.draggedFile = null;
 		for (const fn of this.cleanupFns) {
 			fn();
 		}

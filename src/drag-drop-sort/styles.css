@@ -23,3 +23,9 @@
 	border-radius: var(--radius-s);
 	background-color: var(--background-modifier-hover);
 }
+
+.nav-files-container .tree-item.is-being-dragged-over {
+	background-color: transparent !important;
+	outline: none !important;
+	box-shadow: none !important;
+}
