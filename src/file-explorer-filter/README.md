@@ -1,66 +1,49 @@
 # File Explorer Filter
 
-Adds a filter button to Obsidian's file explorer without patching the explorer's
-sorting implementation.
+## Intro
 
-## Features
+File Explorer Filter adds a filter button to Obsidian's file explorer to switch the view between All folders or one speciifc top-level folder. Switch context without maintaining multiple notebooks - like OneNote sections.
 
-- Switch between all files and any top-level vault folder.
-- Optionally hide files and folders whose names contain configurable text.
-- Enable or disable the name-filter menu option in plugin settings.
-- Combine folder scope and name filtering.
-- Remember the selected filter across Obsidian restarts.
-- Keep hidden items available through search, links, backlinks, and the quick
-  switcher.
-- Coexist with plugins that patch explorer sorting, including Custom Sort.
+## Overview
 
-## Usage
+### Features
 
-1. Select the filter icon in the file explorer toolbar.
-2. Choose **All folders** or a top-level folder such as **Career**.
-3. Toggle **Hide names containing "[DONE]"** independently.
-
-Under **Settings > File Explorer Filter**, you can:
-
-- Show or hide the name-filter menu option.
-- Replace `[DONE]` with any non-empty text.
-
-Name matching is case-insensitive and can occur anywhere in the file or folder
-name. Empty or whitespace-only settings are rejected.
-
-The active filter icon uses the vault's accent color.
-
-Two command-palette commands are also available:
-
-- **File Explorer Filter: Show file explorer filter menu**
-- **File Explorer Filter: Toggle files and folders matching the name filter**
+- **Switch Folder Context**: Easily switch visual context between folders while staying in the same notebook.
+- **Completed Notes**: Hide completed notes using a customizable pattern, such as `[DONE]`.
+- **CSS-Based**: Use filtering alongside other file explorer plugins, including Drag & Drop Sort.
+- **Non-Destructive**: Keep hidden items available through search, links, backlinks, and the quick switcher.
 
 ## Installation
 
-Copy these files into `.obsidian/plugins/file-explorer-filter/`:
+### Manual
 
-```text
-dist/main.js
-manifest.json
-styles.css
-```
+1. Build the plugin:
 
-Then enable **File Explorer Filter** under **Settings > Community plugins**.
+  ```bash
+  cd src/file-explorer-filter
+  npm install
+  npm run build
+  ```
 
-## Development
+2. Copy `dist/main.js`, `manifest.json`, and `styles.css` into `.obsidian/plugins/file-explorer-filter/`.
 
-```bash
-npm install
-npm run dev
-npm run build
-```
+3. Enable **File Explorer Filter** under **Settings > Community plugins**.
 
-## Implementation
+## Usage
 
-The plugin observes the rendered file explorer and applies a CSS class to
-filtered tree rows. It does not patch `getSortedFolderItems()` or alter vault
-files, so the filtering remains independent from explorer sorting plugins.
+Select the filter icon in the file explorer toolbar, then choose **All folders** or a top-level folder such as **Career**. You can independently toggle **Hide names containing "[DONE]"**.
+
+Under **Settings > File Explorer Filter**, enable or disable the name-filter menu option and replace `[DONE]` with any non-empty text. Name matching is case-insensitive and can occur anywhere in a file or folder name; empty or whitespace-only settings are rejected.
+
+You can also use the command palette commands **File Explorer Filter: Show file explorer filter menu** and **File Explorer Filter: Toggle files and folders matching the name filter**.
+
+
+## How it Works
+
+When the plugin loads, it waits for the workspace layout and then applies the saved folder and name filters to every file explorer view. It also reruns this setup when Obsidian rebuilds the explorer, and refreshes the view when files are created, deleted, or renamed.
+
+The filter keeps explorer rows in the DOM and applies a CSS class to rows outside the selected folder or matching the configured name pattern. When the filter changes, the view is refreshed; switching folders also invalidates Obsidian's virtual-scroll layout so the visible rows are recalculated immediately. The plugin does not patch `getSortedFolderItems()` or alter vault files, so it remains independent from explorer sorting plugins.
 
 ## License
 
-MIT
+This project is licensed under the MIT License.

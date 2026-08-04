@@ -1,51 +1,46 @@
 # Drag & Drop Sort
 
-Drag-and-drop reordering for the Obsidian file explorer. Files and folders are freely interspersed — designed for OneNote-style folder notes where a folder is just a file with children.
+## Intro
 
-> **Status:** Alpha (0.12.0). Core reordering works but the modifier key interaction needs refinement. See [Known Issues](#known-issues).
+Drag & Drop Sort adds custom drag-and-drop ordering to the Obsidian file explorer. Files and folders can be freely interspersed, which works well for OneNote-style folder notes.
 
-## Features
+## Overview
 
-- **Works everywhere, instantly** — No rules to configure. Enable the plugin and every folder supports custom ordering immediately.
-- **Interspersed files & folders** — A folder's file note lives right alongside its child items, like in OneNote. No artificial file/folder separation.
-- **Always-on drag reorder** — Drag any visible item to place it before/after another row. Cross-level insert (between rows in another folder) is supported.
-- **Context-menu ordering** — Right-click a file or folder for move actions. Folders always offer **Reset sort** and **Reset sort (all descendants)**, even when no saved sort data currently exists. Desktop shows these commands in a submenu; mobile and tablet show them directly in their own menu section.
-- **Only changed folders are saved** — Folders you never reorder keep zero state in `data.json`. Only reordered folders get an entry.
-- **New items land at the end** — Items not yet in the saved order appear at the bottom: folders first (alphabetical), then files (alphabetical).
+### Features
 
-## How to use
-
-1. Drag any file or folder in the file explorer.
-2. A blue drop indicator shows where the item will land.
-3. Release to commit the new order.
-4. Dropping between rows in another folder moves the item into that folder at that position.
-5. Alternatively, right-click an item and use **Drag & Drop Sort commands** to move it up, down, to the top, or to the bottom. Right-click any folder and choose **Reset sort** to remove that folder's saved order, or **Reset sort (all descendants)** to remove the folder's order and all custom orders below it.
+- **Fully Custom Sort Order**: Customize sort order by dragging and dropping folders or notes directly in the file explorer.
+- **Handles Renames and Moves**: Keeps custom ordering through renames and moves.
+- **Context Menu**: Alternatively, use context-menu items to move items up, down, to the top, or to the bottom.
+- **Reset Controls**: Reset a folder or an entire branch of descendants.
 
 ## Installation
 
-### Manual (for alpha testing)
+### Manual
 
-```bash
-# Clone or copy the plugin into your vault
-cp dist/main.js manifest.json styles.css \
-   .obsidian/plugins/drag-drop-sort/
-```
+1. Build the plugin:
 
-Then enable **Drag & Drop Sort** in Settings → Community plugins.
+  ```
+  bash
+  cd src/drag-drop-sort
+  npm install
+  np run build
+  ```
 
-**If you also use the `Folder Sort Rules` plugin, disable it first** — both plugins patch the same explorer method and will conflict.
+2. Copy `dist/main.js`, `manifest.json`, and `styles.css` into `.obsidian/plugins/drag-drop-sort/`.
 
-After deploying a new plugin build to your vault (`main.js`, `manifest.json`, `styles.css`), reload the plugin or restart Obsidian so the new code is actually loaded.
+3. Enable **Drag & Drop Sort** under **Settings > Community plugins**.
 
-## Development
+## Usage
 
-```bash
-npm install
-npm run dev    # watch mode
-npm run build  # production build
-```
+Drag any file or folder in the file explorer. A blue drop indicator shows where the item will land; release to commit the new order. Dropping between rows in another folder moves the item into that folder at that position.
 
-## Data format
+You can also right-click an item and use **Drag & Drop Sort commands** to move it up, down, to the top, or to the bottom. Right-click a folder and choose **Reset sort** to remove that folder's saved order, or **Reset sort (all descendants)** to remove the folder's order and all custom orders below it.
+
+## How it Works
+
+The plugin patches `getSortedFolderItems()` on the internal file explorer view, makes visible tree items draggable, and saves each changed folder's order to `data.json`. Dropping across folders also moves the item through Obsidian's file manager. Hidden rows and unsupported file types are excluded from positional calculations so the drop position matches what is visible.
+
+### Data Format
 
 The plugin stores one simple object in `.obsidian/plugins/drag-drop-sort/data.json`:
 
@@ -60,23 +55,10 @@ The plugin stores one simple object in `.obsidian/plugins/drag-drop-sort/data.js
 
 Only folders you've actually reordered appear in this file. The order array contains item *names* (not full paths), and files and folders are freely mixed together.
 
-## How it works
+## Acknowledgements
 
-- Patches `getSortedFolderItems()` on the internal file explorer view.
-- Sets `draggable` on every visible tree item.
-- On drop: computes the new position relative to visible items, moves files/folders through Obsidian's file manager when parent changes, saves to `data.json`, triggers a re-render.
-- Visible-item-awareness: items hidden by CSS snippets (e.g. `Assets` folders) or unsupported file types (e.g. `.json`) are tracked internally but excluded from positional calculations so the drop position matches what you see.
-
-## Known Issues
-
-- **Auto-expand on hover can still fire in edge cases** — Explorer drag internals are Obsidian-controlled and can still expand folders in some situations.
-- **Alpha quality** — This plugin monkey-patches an internal Obsidian API (`getSortedFolderItems`). Behavior may change across Obsidian updates.
-- **Only the first file explorer leaf is patched** — Multi-window setups with more than one file explorer are not fully supported.
-
-## Credits
-
-Drag & Drop Sort is an independent implementation based on the architecture and patterns of [Folder Sort Rules](https://github.com/wepee/obsidian-folder-sort-rules) by Adam. In particular, the `getSortedFolderItems` monkey-patch and per-item drag handler pattern are adapted from that MIT-licensed codebase.
+Drag & Drop Sort is an independent implementation based on the architecture and patterns of [Folder Sort Rules](https://github.com/wepee/obsidian-folder-sort-rules) by Adam. The `getSortedFolderItems` monkey-patch and per-item drag handler pattern are adapted from that MIT-licensed codebase.
 
 ## License
 
-MIT — see [../../LICENSE.md](../../LICENSE.md).
+This project is licensed under the MIT License.
