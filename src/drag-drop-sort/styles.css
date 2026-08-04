@@ -1,25 +1,31 @@
-.custom-sort-draggable {
+.drag-drop-sort-draggable {
 	cursor: grab;
 }
 
-.custom-sort-draggable:active {
+.drag-drop-sort-draggable:active {
 	cursor: grabbing;
 }
 
-.custom-sort-dragging {
+.drag-drop-sort-dragging {
 	opacity: 0.4;
 }
 
-.custom-sort-drop-indicator {
+.drag-drop-sort-drop-indicator {
 	height: 2px;
 	background-color: var(--interactive-accent);
 	border-radius: 1px;
 	margin: 0 var(--size-4-2);
 }
 
-.custom-sort-drop-folder {
+.drag-drop-sort-drop-folder {
 	outline: 2px solid var(--interactive-accent);
 	outline-offset: -2px;
 	border-radius: var(--radius-s);
 	background-color: var(--background-modifier-hover);
+}
+
+.nav-files-container .tree-item.is-being-dragged-over {
+	background-color: transparent !important;
+	outline: none !important;
+	box-shadow: none !important;
 }

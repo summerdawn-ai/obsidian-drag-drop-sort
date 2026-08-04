@@ -4,11 +4,11 @@ Plugin projects for summerdawn.ai.
 
 ## Plugins
 
-### Custom Sort
+### Drag & Drop Sort
 
 Adds drag-and-drop custom ordering to the Obsidian file explorer with interspersed files and folders.
 
-Project location: `src/custom-sort`
+Project location: `src/drag-drop-sort`
 
 ### File Explorer Filter
 
@@ -24,10 +24,10 @@ Load a plugin unpacked from its folder under `src/`:
 2. Install dependencies with `npm install`.
 3. Run `npm run dev` for watch mode or `npm run build` for a production build.
 
-Example for Custom Sort:
+Example for Drag & Drop Sort:
 
 ```bash
-cd src/custom-sort
+cd src/drag-drop-sort
 npm install
 npm run dev
 npm run build
