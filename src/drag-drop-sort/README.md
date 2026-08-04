@@ -19,11 +19,10 @@ Drag & Drop Sort adds custom drag-and-drop ordering to the Obsidian file explore
 
 1. Build the plugin:
 
-  ```
-  bash
+  ```bash
   cd src/drag-drop-sort
   npm install
-  np run build
+  npm run build
   ```
 
 2. Copy `dist/main.js`, `manifest.json`, and `styles.css` into `.obsidian/plugins/drag-drop-sort/`.
