@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-file-explorer-filter",
-	"version": "0.1.0-alpha",
+	"version": "1.0.0",
 	"description": "Filter the Obsidian file explorer by top-level folder and configurable name text.",
 	"main": "dist/main.js",
 	"scripts": {

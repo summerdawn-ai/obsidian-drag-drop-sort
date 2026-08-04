@@ -13,6 +13,11 @@ File Explorer Filter adds a filter button to Obsidian's file explorer to switch 
 - **CSS-Based**: Use filtering alongside other file explorer plugins, including Drag & Drop Sort.
 - **Non-Destructive**: Keep hidden items available through search, links, backlinks, and the quick switcher.
 
+### Version History
+
+- **1.0.0 (2026-08-04)**: Fix initialization and virtual-scroll layout invalidation after filtering and scope changes.
+- **0.1.0-alpha (2026-06-09)**: Initial version with folder filter and configurable name filtering.
+
 ## Installation
 
 ### Manual
