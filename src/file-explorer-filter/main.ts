@@ -24,6 +24,12 @@ interface StoredFileExplorerFilterSettings
 
 interface FileExplorerView {
 	containerEl: HTMLElement;
+	// These are internal Obsidian APIs, so every level is optional across versions.
+	tree?: {
+		infinityScroll?: {
+			invalidateAll?: () => void;
+		};
+	};
 }
 
 const DEFAULT_SETTINGS: FileExplorerFilterSettings = {
@@ -41,6 +47,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	private observers = new Map<HTMLElement, MutationObserver>();
 	private buttons = new Map<HTMLElement, HTMLElement>();
 	private refreshTimer: number | null = null;
+	private setupTimer: number | null = null;
+	private layoutInvalidationTimer: number | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -76,6 +84,12 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	onunload(): void {
 		if (this.refreshTimer !== null) {
 			window.clearTimeout(this.refreshTimer);
+		}
+		if (this.setupTimer !== null) {
+			window.clearTimeout(this.setupTimer);
+		}
+		if (this.layoutInvalidationTimer !== null) {
+			window.clearTimeout(this.layoutInvalidationTimer);
 		}
 
 		for (const observer of this.observers.values()) {
@@ -135,40 +149,44 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			const view = leaf.view as unknown as FileExplorerView;
 			const container = view.containerEl;
 			if (!container) {
-				throw new Error("The current file explorer does not expose its container.");
+				continue;
 			}
 			activeContainers.add(container);
 
 			if (!this.buttons.has(container)) {
+				// On mobile the sidebar may render after layout-ready, so the toolbar
+				// can be absent on the first setup attempt.
 				const toolbar = container.querySelector<HTMLElement>(
 					".nav-header .nav-buttons-container",
 				);
-				if (!toolbar) {
-					throw new Error("Could not find the file explorer toolbar.");
+				if (toolbar) {
+					const button = document.createElement("div");
+					button.addClass("clickable-icon", "nav-action-button");
+					button.addClass(BUTTON_CLASS);
+					button.setAttribute("aria-label", "Filter file explorer");
+					button.setAttribute("role", "button");
+					button.tabIndex = 0;
+					setIcon(button, "list-filter");
+					this.registerDomEvent(button, "click", (event) =>
+						this.showFilterMenu(event),
+					);
+					this.registerDomEvent(button, "keydown", (event) => {
+						if (event.key === "Enter" || event.key === " ") {
+							event.preventDefault();
+							this.showFilterMenu();
+						}
+					});
+					toolbar.appendChild(button);
+					this.buttons.set(container, button);
 				}
-
-				const button = document.createElement("div");
-				button.addClass("clickable-icon", "nav-action-button");
-				button.addClass(BUTTON_CLASS);
-				button.setAttribute("aria-label", "Filter file explorer");
-				button.setAttribute("role", "button");
-				button.tabIndex = 0;
-				setIcon(button, "list-filter");
-				this.registerDomEvent(button, "click", (event) =>
-					this.showFilterMenu(event),
-				);
-				this.registerDomEvent(button, "keydown", (event) => {
-					if (event.key === "Enter" || event.key === " ") {
-						event.preventDefault();
-						this.showFilterMenu();
-					}
-				});
-				toolbar.appendChild(button);
-				this.buttons.set(container, button);
 			}
 
 			if (!this.observers.has(container)) {
-				const observer = new MutationObserver(() => this.scheduleRefresh());
+				// Re-run setup when Obsidian creates the toolbar or rebuilds tree rows.
+				const observer = new MutationObserver(() => {
+					this.scheduleSetup();
+					this.scheduleRefresh();
+				});
 				observer.observe(container, { childList: true, subtree: true });
 				this.observers.set(container, observer);
 			}
@@ -241,9 +259,13 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	}
 
 	private async setScope(scope: string | null): Promise<void> {
+		const scopeChanged = this.filterSettings.scope !== scope;
 		this.filterSettings.scope = scope;
 		await this.saveSettings();
 		this.refresh();
+		if (scopeChanged) {
+			this.scheduleLayoutInvalidation();
+		}
 	}
 
 	async setNameFilterEnabled(enabled: boolean): Promise<void> {
@@ -293,10 +315,43 @@ export default class FileExplorerFilterPlugin extends Plugin {
 		}, 50);
 	}
 
-	private refresh(): void {
+	private scheduleSetup(): void {
+		if (this.setupTimer !== null) {
+			window.clearTimeout(this.setupTimer);
+		}
+
+		this.setupTimer = window.setTimeout(() => {
+			this.setupTimer = null;
+			this.setupExplorerViewsSafely();
+		}, 50);
+	}
+
+	private scheduleLayoutInvalidation(): void {
+		if (this.layoutInvalidationTimer !== null) {
+			window.clearTimeout(this.layoutInvalidationTimer);
+		}
+
+		this.layoutInvalidationTimer = window.setTimeout(() => {
+			this.layoutInvalidationTimer = null;
+			this.invalidateExplorerLayout();
+		}, 100);
+	}
+
+	private invalidateExplorerLayout(): void {
 		for (const leaf of this.getExplorerLeaves()) {
 			const view = leaf.view as unknown as FileExplorerView;
-			this.filterExplorer(view.containerEl);
+			// display:none changes the visual rows but not Obsidian's cached
+			// virtual-scroll measurements; invalidate those measurements explicitly.
+			view.tree?.infinityScroll?.invalidateAll?.();
+		}
+	}
+
+	private refresh(): void {
+		let layoutChanged = false;
+		for (const leaf of this.getExplorerLeaves()) {
+			const view = leaf.view as unknown as FileExplorerView;
+			layoutChanged =
+				this.filterExplorer(view.containerEl) || layoutChanged;
 		}
 
 		for (const button of this.buttons.values()) {
@@ -314,9 +369,16 @@ export default class FileExplorerFilterPlugin extends Plugin {
 					this.filterSettings.hideMatchingNames,
 			);
 		}
+
+		if (layoutChanged) {
+			// Wait for the current batch of explorer rows to render before
+			// invalidating virtual-scroll measurements.
+			this.scheduleLayoutInvalidation();
+		}
 	}
 
-	private filterExplorer(container: HTMLElement): void {
+	private filterExplorer(container: HTMLElement): boolean {
+		let layoutChanged = false;
 		const titles = container.querySelectorAll<HTMLElement>(
 			".nav-file-title[data-path], .nav-folder-title[data-path]",
 		);
@@ -328,13 +390,21 @@ export default class FileExplorerFilterPlugin extends Plugin {
 				continue;
 			}
 
+			// Keep rows in the DOM and hide them with CSS so ordering and other
+			// File Explorer plugins continue to operate on the same tree.
 			const hiddenByScope = !this.isPathInScope(path);
 			const hiddenByName =
 				this.filterSettings.nameFilterEnabled &&
 				this.filterSettings.hideMatchingNames &&
 				this.nameContainsFilter(path);
-			treeItem.toggleClass(HIDDEN_CLASS, hiddenByScope || hiddenByName);
+			const shouldHide = hiddenByScope || hiddenByName;
+			if (treeItem.classList.contains(HIDDEN_CLASS) !== shouldHide) {
+				treeItem.toggleClass(HIDDEN_CLASS, shouldHide);
+				layoutChanged = true;
+			}
 		}
+
+		return layoutChanged;
 	}
 
 	private isPathInScope(path: string): boolean {
@@ -343,6 +413,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			return true;
 		}
 
+		// Keep the selected folder, its descendants, and its ancestor chain visible.
 		return (
 			path === scope ||
 			path.startsWith(`${scope}/`) ||
@@ -351,6 +422,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 	}
 
 	private nameContainsFilter(path: string): boolean {
+		// Match the visible file or folder name, not the complete parent path.
 		const name = path.split("/").pop() ?? path;
 		return name
 			.toLocaleLowerCase()
