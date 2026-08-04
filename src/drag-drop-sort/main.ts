@@ -1,7 +1,31 @@
-import { Plugin, TAbstractFile, TFolder, WorkspaceLeaf } from 'obsidian';
+import {
+	Menu,
+	Platform,
+	Plugin,
+	TAbstractFile,
+	TFolder,
+	WorkspaceLeaf,
+} from 'obsidian';
 import { CustomSortSettings, DEFAULT_SETTINGS } from './types';
 import { sortItems } from './sorter';
 import { DragHandler } from './drag-handler';
+
+interface MenuItemWithSubmenu {
+	setSubmenu(): Menu;
+}
+
+type MoveAction = 'up' | 'down' | 'top' | 'bottom';
+
+const MOVE_ACTIONS: Array<{
+	action: MoveAction;
+	title: string;
+	icon: string;
+}> = [
+	{ action: 'up', title: 'Move up', icon: 'arrow-up' },
+	{ action: 'down', title: 'Move down', icon: 'arrow-down' },
+	{ action: 'top', title: 'Move to top', icon: 'arrow-up-to-line' },
+	{ action: 'bottom', title: 'Move to bottom', icon: 'arrow-down-to-line' },
+];
 
 /**
  * Monkey-patch a method on an object's prototype.
@@ -59,6 +83,13 @@ export default class CustomSortPlugin extends Plugin {
 				if (!this.patched) {
 					this.patchFileExplorer();
 				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.workspace.on('file-menu', (menu, file, source) => {
+				if (source !== 'file-explorer-context-menu') return;
+				this.addFileMenuItems(menu, file);
 			})
 		);
 	}
@@ -169,6 +200,167 @@ export default class CustomSortPlugin extends Plugin {
 	/** Sort items using custom order — interspersed files & folders. */
 	sortExplorerItems(items: any[], folderPath: string, order: string[]): any[] {
 		return sortItems(items, folderPath, order);
+	}
+
+	private addFileMenuItems(menu: Menu, file: TAbstractFile): void {
+		const parent = file.parent;
+		const folder = file instanceof TFolder ? file : null;
+		const moveActions = parent
+			? this.getAvailableMoveActions(file, parent)
+			: [];
+
+		if (folder === null && moveActions.length === 0) return;
+
+		menu.addSeparator();
+
+		if (Platform.isDesktop && !Platform.isTablet) {
+			menu.addItem((item) => {
+				// setSubmenu is available at runtime but is missing from older Obsidian typings.
+				const submenu = (item as unknown as MenuItemWithSubmenu).setSubmenu();
+				item.setTitle('Drag & Drop Sort commands').setIcon('move');
+				this.addSortMenuItems(submenu, file, folder, moveActions);
+			});
+		} else {
+			this.addSortMenuItems(menu, file, folder, moveActions);
+		}
+	}
+
+	private addSortMenuItems(
+		menu: Menu,
+		file: TAbstractFile,
+		folder: TFolder | null,
+		moveActions: typeof MOVE_ACTIONS
+	): void {
+		if (folder !== null) {
+			menu.addItem((item) =>
+				item
+					.setTitle('Reset sort')
+					.setIcon('rotate-ccw')
+					.onClick(() => void this.resetFolderSort(folder))
+			);
+
+			menu.addItem((item) =>
+				item
+					.setTitle('Reset sort (all descendants)')
+					.setIcon('folder-tree')
+					.onClick(() => void this.resetFolderSort(folder, true))
+			);
+
+			if (moveActions.length > 0) {
+				menu.addSeparator();
+			}
+		}
+
+		for (const moveAction of moveActions) {
+			menu.addItem((item) =>
+				item
+					.setTitle(moveAction.title)
+					.setIcon(moveAction.icon)
+					.onClick(() => void this.moveFile(file, moveAction.action))
+			);
+		}
+	}
+
+	private getAvailableMoveActions(
+		file: TAbstractFile,
+		parent: TFolder
+	): typeof MOVE_ACTIONS {
+		const order = this.getCurrentOrder(parent);
+		const index = order.indexOf(file.name);
+		if (index === -1 || order.length < 2) return [];
+
+		return MOVE_ACTIONS.filter(({ action }) => {
+			switch (action) {
+				case 'up':
+				case 'top':
+					return index > 0;
+				case 'down':
+				case 'bottom':
+					return index < order.length - 1;
+			}
+		});
+	}
+
+	private getCurrentOrder(parent: TFolder): string[] {
+		const children = parent.children.slice();
+		const childNames = new Set(children.map((child) => child.name));
+		const savedOrder = this.settings.orders[parent.path] ?? [];
+		const seen = new Set<string>();
+		const orderedNames = savedOrder.filter((name) => {
+			if (!childNames.has(name) || seen.has(name)) return false;
+			seen.add(name);
+			return true;
+		});
+
+		const unknownFolders = children
+			.filter((child) => !seen.has(child.name) && child instanceof TFolder)
+			.sort((a, b) => this.compareFileNames(a, b));
+		const unknownFiles = children
+			.filter((child) => !seen.has(child.name) && !(child instanceof TFolder))
+			.sort((a, b) => this.compareFileNames(a, b));
+
+		return [
+			...orderedNames,
+			...unknownFolders.map((child) => child.name),
+			...unknownFiles.map((child) => child.name),
+		];
+	}
+
+	private compareFileNames(left: TAbstractFile, right: TAbstractFile): number {
+		return left.name.localeCompare(right.name, undefined, {
+			sensitivity: 'base',
+			numeric: true,
+		});
+	}
+
+	private async resetFolderSort(
+		folder: TFolder,
+		includeChildren = false
+	): Promise<void> {
+		const prefix = `${folder.path}/`;
+		const pathsToReset = Object.keys(this.settings.orders).filter(
+			(path) =>
+				path === folder.path ||
+				(includeChildren && path.startsWith(prefix))
+		);
+		if (pathsToReset.length === 0) return;
+
+		for (const path of pathsToReset) {
+			delete this.settings.orders[path];
+		}
+		await this.saveSettings();
+	}
+
+	private async moveFile(file: TAbstractFile, action: MoveAction): Promise<void> {
+		const parent = file.parent;
+		if (!parent) return;
+
+		const order = this.getCurrentOrder(parent);
+		const currentIndex = order.indexOf(file.name);
+		if (currentIndex === -1 || order.length < 2) return;
+
+		let targetIndex = currentIndex;
+		switch (action) {
+			case 'up':
+				targetIndex -= 1;
+				break;
+			case 'down':
+				targetIndex += 1;
+				break;
+			case 'top':
+				targetIndex = 0;
+				break;
+			case 'bottom':
+				targetIndex = order.length - 1;
+				break;
+		}
+
+		if (targetIndex === currentIndex) return;
+
+		order.splice(currentIndex, 1);
+		order.splice(targetIndex, 0, file.name);
+		this.settings.orders[parent.path] = order;
+		await this.saveSettings();
 	}
 
 	/** Mark beginning of plugin-controlled move operation. */

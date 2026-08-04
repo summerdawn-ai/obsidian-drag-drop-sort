@@ -9,6 +9,7 @@ Drag-and-drop reordering for the Obsidian file explorer. Files and folders are f
 - **Works everywhere, instantly** — No rules to configure. Enable the plugin and every folder supports custom ordering immediately.
 - **Interspersed files & folders** — A folder's file note lives right alongside its child items, like in OneNote. No artificial file/folder separation.
 - **Always-on drag reorder** — Drag any visible item to place it before/after another row. Cross-level insert (between rows in another folder) is supported.
+- **Context-menu ordering** — Right-click a file or folder for move actions. Folders always offer **Reset sort** and **Reset sort (all descendants)**, even when no saved sort data currently exists. Desktop shows these commands in a submenu; mobile and tablet show them directly in their own menu section.
 - **Only changed folders are saved** — Folders you never reorder keep zero state in `data.json`. Only reordered folders get an entry.
 - **New items land at the end** — Items not yet in the saved order appear at the bottom: folders first (alphabetical), then files (alphabetical).
 
@@ -18,6 +19,7 @@ Drag-and-drop reordering for the Obsidian file explorer. Files and folders are f
 2. A blue drop indicator shows where the item will land.
 3. Release to commit the new order.
 4. Dropping between rows in another folder moves the item into that folder at that position.
+5. Alternatively, right-click an item and use **Drag & Drop Sort commands** to move it up, down, to the top, or to the bottom. Right-click any folder and choose **Reset sort** to remove that folder's saved order, or **Reset sort (all descendants)** to remove the folder's order and all custom orders below it.
 
 ## Installation
 
