@@ -10,7 +10,7 @@ Drag & Drop Sort adds custom drag-and-drop ordering to the Obsidian file explore
 
 - **Fully Custom Sort Order**: Customize sort order by dragging and dropping folders or notes directly in the file explorer.
 - **Handles Renames and Moves**: Keeps custom ordering through renames and moves.
-- **Context Menu**: Alternatively, use context-menu items to move items up, down, to the top, or to the bottom.
+- **Context Menu and Command Palette**: Alternatively, use context-menu items or the command palette to move items up, down, to the top, or to the bottom. The commands can also be assigned hotkeys in Settings → Hotkeys.
 - **Reset Controls**: Reset a folder or an entire branch of descendants.
 
 ## Installation

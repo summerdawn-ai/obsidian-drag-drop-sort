@@ -14,6 +14,17 @@ interface MenuItemWithSubmenu {
 	setSubmenu(): Menu;
 }
 
+interface FileExplorerViewLike {
+	tree?: {
+		focusedItem?: {
+			file?: TAbstractFile | null;
+		} | null;
+	};
+	activeDom?: {
+		file?: TAbstractFile | null;
+	} | null;
+}
+
 type MoveAction = 'up' | 'down' | 'top' | 'bottom';
 
 const MOVE_ACTIONS: Array<{
@@ -92,6 +103,8 @@ export default class CustomSortPlugin extends Plugin {
 				this.addFileMenuItems(menu, file);
 			})
 		);
+
+		this.registerSortCommands();
 	}
 
 	onunload(): void {
@@ -200,6 +213,67 @@ export default class CustomSortPlugin extends Plugin {
 	/** Sort items using custom order — interspersed files & folders. */
 	sortExplorerItems(items: any[], folderPath: string, order: string[]): any[] {
 		return sortItems(items, folderPath, order);
+	}
+
+	private registerSortCommands(): void {
+		for (const moveAction of MOVE_ACTIONS) {
+			this.addCommand({
+				id: `move-${moveAction.action}`,
+				name: moveAction.title,
+				checkCallback: (checking) =>
+					this.runMoveCommand(moveAction.action, checking),
+			});
+		}
+
+		this.addCommand({
+			id: 'reset-sort',
+			name: 'Reset sort',
+			checkCallback: (checking) => this.runResetCommand(false, checking),
+		});
+
+		this.addCommand({
+			id: 'reset-sort-all-descendants',
+			name: 'Reset sort (all descendants)',
+			checkCallback: (checking) => this.runResetCommand(true, checking),
+		});
+	}
+
+	private runMoveCommand(action: MoveAction, checking: boolean): boolean {
+		const file = this.getActiveExplorerFile();
+		const parent = file?.parent;
+		if (!file || !parent) return false;
+
+		const availableActions = this.getAvailableMoveActions(file, parent);
+		if (!availableActions.some((moveAction) => moveAction.action === action)) {
+			return false;
+		}
+
+		if (!checking) {
+			void this.moveFile(file, action);
+		}
+		return true;
+	}
+
+	private runResetCommand(
+		includeChildren: boolean,
+		checking: boolean
+	): boolean {
+		const file = this.getActiveExplorerFile();
+		if (!(file instanceof TFolder)) return false;
+
+		if (!checking) {
+			void this.resetFolderSort(file, includeChildren);
+		}
+		return true;
+	}
+
+	private getActiveExplorerFile(): TAbstractFile | null {
+		const view = this.getFileExplorerLeaf()?.view as
+			| FileExplorerViewLike
+			| undefined;
+		if (!view) return null;
+
+		return view.tree?.focusedItem?.file ?? view.activeDom?.file ?? null;
 	}
 
 	private addFileMenuItems(menu: Menu, file: TAbstractFile): void {
