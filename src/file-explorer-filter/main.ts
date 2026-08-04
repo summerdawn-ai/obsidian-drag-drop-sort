@@ -54,6 +54,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 		await this.loadSettings();
 		this.addSettingTab(new FileExplorerFilterSettingTab(this.app, this));
 
+		// Explorer DOM is created lazily, so setup must run both after the initial
+		// layout and whenever Obsidian replaces that layout.
 		this.app.workspace.onLayoutReady(() => this.setupExplorerViewsSafely());
 
 		this.registerEvent(
@@ -112,6 +114,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			((await this.loadData()) as StoredFileExplorerFilterSettings | null) ?? {};
 		this.filterSettings = Object.assign({}, DEFAULT_SETTINGS, stored);
 
+		// Keep the old key readable so existing users do not lose this preference
+		// when upgrading from the earlier setting name.
 		if (
 			typeof stored.hideMatchingNames !== "boolean" &&
 			typeof stored.hideDone === "boolean"
@@ -160,6 +164,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 					".nav-header .nav-buttons-container",
 				);
 				if (toolbar) {
+					// Register one button per explorer container because workspaces can
+					// contain multiple file explorer leaves.
 					const button = document.createElement("div");
 					button.addClass("clickable-icon", "nav-action-button");
 					button.addClass(BUTTON_CLASS);
@@ -206,6 +212,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 
 	private showFilterMenu(event?: MouseEvent): void {
 		const menu = new Menu();
+		// Scope choices are limited to top-level folders, while descendants remain
+		// visible to preserve the selected folder's navigable tree context.
 		const rootFolders = this.app.vault
 			.getRoot()
 			.children.filter((item): item is TFolder => item instanceof TFolder)
@@ -309,6 +317,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			window.clearTimeout(this.refreshTimer);
 		}
 
+		// Coalesce bursts of vault and DOM mutations into one filtering pass.
 		this.refreshTimer = window.setTimeout(() => {
 			this.refreshTimer = null;
 			this.refresh();
@@ -398,6 +407,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 				this.filterSettings.hideMatchingNames &&
 				this.nameContainsFilter(path);
 			const shouldHide = hiddenByScope || hiddenByName;
+			// Toggle only when the state changes so MutationObserver callbacks do not
+			// create an unnecessary refresh loop.
 			if (treeItem.classList.contains(HIDDEN_CLASS) !== shouldHide) {
 				treeItem.toggleClass(HIDDEN_CLASS, shouldHide);
 				layoutChanged = true;
@@ -413,7 +424,8 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			return true;
 		}
 
-		// Keep the selected folder, its descendants, and its ancestor chain visible.
+		// Keep the selected folder, its descendants, and its ancestor chain visible
+		// so the scoped subtree remains connected in the explorer tree.
 		return (
 			path === scope ||
 			path.startsWith(`${scope}/`) ||

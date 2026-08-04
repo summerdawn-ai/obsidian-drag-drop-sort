@@ -41,6 +41,8 @@ export class DragHandler {
 	setup(explorerView: any): void {
 		this.cleanup();
 
+		// Rebind to the current view because Obsidian may replace its row elements
+		// after a refresh or layout change.
 		const fileItems: Record<string, any> = explorerView.fileItems;
 		if (!fileItems) return;
 
@@ -51,6 +53,7 @@ export class DragHandler {
 			const onExplorerDragOver = (e: DragEvent) => {
 				if (!this.state.draggedFile) return;
 
+				// Capture events on the container so drops in gaps between rows work too.
 				const rowTarget = this.resolveRowTarget(e);
 				if (rowTarget) {
 					this.handleDragOver(e, rowTarget.el, rowTarget.file);
@@ -186,6 +189,8 @@ export class DragHandler {
 		const file: TAbstractFile = item.file;
 
 		const onDragStart = (e: DragEvent) => {
+			// Store the source independently of the DOM row; the row can move while
+			// the pointer is being dragged.
 			this.state.draggedEl = el;
 			this.state.draggedFile = file;
 			this.removePlaceholder();
@@ -257,6 +262,8 @@ export class DragHandler {
 	} | null {
 		const placeholder = this.state.placeholder;
 		if (placeholder?.parentElement) {
+			// Once shown, the placeholder is the most reliable indication of which
+			// side of a row the user intends to insert on.
 			const next = placeholder.nextElementSibling;
 			const previous = placeholder.previousElementSibling;
 			const row =
@@ -288,6 +295,8 @@ export class DragHandler {
 				child instanceof HTMLElement && child.classList.contains('tree-item')
 		);
 		for (const row of rows) {
+			// Use row midpoints to turn a continuous pointer position into a stable
+			// before/after insertion choice.
 			const self = row.querySelector('.tree-item-self');
 			if (!(self instanceof HTMLElement)) continue;
 			const rect = self.getBoundingClientRect();
@@ -405,7 +414,8 @@ export class DragHandler {
 			return;
 		}
 
-		// ── Drop onto empty/collapsed folder header ──
+		// An empty or collapsed folder has no child gap to target, so its header
+		// represents an explicit move-into-folder operation.
 		if (this.state.folderDropTarget !== null) {
 			const targetFolder = this.state.folderDropTarget.folder;
 
@@ -469,6 +479,8 @@ export class DragHandler {
 			}
 		}
 
+		// Update custom order only after the filesystem move succeeds. Obsidian's
+		// rename event is suppressed during this plugin-controlled operation.
 		this.applyReorder(
 			sourceParent,
 			destinationParent,
@@ -484,6 +496,7 @@ export class DragHandler {
 	private canDropOnTarget(dragged: TAbstractFile, target: TAbstractFile): boolean {
 		const destinationParent = target.parent?.path ?? '';
 
+		// Prevent dropping onto the source itself or into one of its descendants.
 		if (dragged.path === destinationParent) return false;
 		if (destinationParent.startsWith(dragged.path + '/')) return false;
 
@@ -614,6 +627,8 @@ export class DragHandler {
 		const order = this.plugin.settings.orders[parentPath] ?? [];
 		const visibleChildren = this.getVisibleChildren(parentPath);
 
+		// Reorder only rendered children; hidden rows are merged back later so a
+		// filtered explorer view cannot accidentally discard their positions.
 		const working = order.filter(
 			(name) => this.isVisible(parentPath, name) && visibleChildren.includes(name)
 		);
@@ -642,6 +657,7 @@ export class DragHandler {
 
 	private remapFolderOrderKeys(oldPath: string, newPath: string): void {
 		const remapped: Record<string, string[]> = {};
+		// Folder moves change every descendant path, not just the moved folder's key.
 		for (const [key, value] of Object.entries(this.plugin.settings.orders)) {
 			if (key === oldPath || key.startsWith(oldPath + '/')) {
 				const suffix = key.slice(oldPath.length);
@@ -688,6 +704,8 @@ export class DragHandler {
 
 	/** Remove order entries for deleted/moved items. */
 	private cleanupStaleOrders(): void {
+		// Rename/delete events can leave persisted entries behind; prune them after
+		// a drag operation while the vault has its final paths.
 		for (const [path, order] of Object.entries(this.plugin.settings.orders)) {
 			const folder = this.plugin.app.vault.getFolderByPath(path);
 			if (!folder) {

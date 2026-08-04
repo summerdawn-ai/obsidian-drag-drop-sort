@@ -15,6 +15,7 @@ export function sortItems(
 	if (order.length === 0) return items;
 
 	const orderMap = new Map<string, number>();
+	// Map names to positions once so each explorer item can be classified in O(1).
 	for (let i = 0; i < order.length; i++) {
 		orderMap.set(order[i], i);
 	}
@@ -36,10 +37,10 @@ export function sortItems(
 		}
 	}
 
-	// Sort known items by their position in the order array
+	// Known items retain the user's explicit order, regardless of file type.
 	inOrder.sort((a, b) => a.pos - b.pos);
 
-	// Sort unknowns: folders alphabetically, then files alphabetically
+	// Unknown items use Obsidian-like fallback grouping: folders first, files second.
 	unknownFolders.sort((a, b) =>
 		a.file.name.localeCompare(b.file.name, undefined, { sensitivity: 'base', numeric: true })
 	);
@@ -59,6 +60,7 @@ export function sortItems(
  * Simply snapshot the current visual order of all items in the folder.
  */
 export function buildOrderFromItems(items: any[]): string[] {
+	// The explorer rows are already in visual order, so a snapshot is enough.
 	return items
 		.filter((item) => item && item.file)
 		.map((item) => item.file.name);

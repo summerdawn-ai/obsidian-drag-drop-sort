@@ -47,6 +47,8 @@ function patchPrototype(
 	methodName: string,
 	factory: (original: (...args: any[]) => any) => (...args: any[]) => any
 ): () => void {
+	// Obsidian recreates views during layout changes, so patch the shared
+	// prototype and return the exact inverse operation for plugin unload.
 	const proto = obj.constructor.prototype;
 	const original = proto[methodName];
 	proto[methodName] = factory(original);
@@ -67,6 +69,8 @@ export default class CustomSortPlugin extends Plugin {
 		await this.loadSettings();
 		this.dragHandler = new DragHandler(this);
 
+		// File explorer internals are not available until Obsidian has finished
+		// constructing the workspace layout.
 		this.app.workspace.onLayoutReady(() => {
 			this.patchFileExplorer();
 		});
@@ -175,6 +179,8 @@ export default class CustomSortPlugin extends Plugin {
 				function (this: any, folder: TFolder) {
 					const items = original.call(this, folder);
 
+					// Preserve Obsidian's normal ordering whenever this folder has no
+					// saved custom order.
 					const order = plugin.settings.orders[folder.path];
 					if (!order || order.length === 0) return items;
 
@@ -249,6 +255,7 @@ export default class CustomSortPlugin extends Plugin {
 		}
 
 		if (!checking) {
+			// checkCallback is called once to enable the command and again to run it.
 			void this.moveFile(file, action);
 		}
 		return true;
@@ -361,6 +368,7 @@ export default class CustomSortPlugin extends Plugin {
 		const savedOrder = this.settings.orders[parent.path] ?? [];
 		const seen = new Set<string>();
 		const orderedNames = savedOrder.filter((name) => {
+			// Ignore deleted/renamed children and duplicate persisted entries.
 			if (!childNames.has(name) || seen.has(name)) return false;
 			seen.add(name);
 			return true;
@@ -373,6 +381,8 @@ export default class CustomSortPlugin extends Plugin {
 			.filter((child) => !seen.has(child.name) && !(child instanceof TFolder))
 			.sort((a, b) => this.compareFileNames(a, b));
 
+		// Saved names take precedence; new or untracked folders/files retain the
+		// same fallback grouping used by the explorer sort implementation.
 		return [
 			...orderedNames,
 			...unknownFolders.map((child) => child.name),
@@ -431,6 +441,8 @@ export default class CustomSortPlugin extends Plugin {
 
 		if (targetIndex === currentIndex) return;
 
+		// Work from the complete effective order so moving an untracked item also
+		// creates a stable persisted order for the folder.
 		order.splice(currentIndex, 1);
 		order.splice(targetIndex, 0, file.name);
 		this.settings.orders[parent.path] = order;
