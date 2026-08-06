@@ -15,6 +15,11 @@ on:
         description: Version number (SemVer, for example, 1.0.2)
         required: true
         type: string
+      create_release:
+        description: Create GitHub Release
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   validate:
@@ -62,6 +67,7 @@ jobs:
       # The workflow input is the release tag. It must exactly match the
       # manifest that will be committed and published.
       - name: Check manifest version
+        if: ${{ github.event.inputs.create_release == 'true' }}
         shell: bash
         env:
           PLUGIN_NAME: ${{ inputs.plugin_name }}
@@ -85,6 +91,7 @@ jobs:
 
       # Do not rewrite the target source when that version is already released.
       - name: Check version has not been published
+        if: ${{ github.event.inputs.create_release == 'true' }}
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
@@ -154,6 +161,7 @@ jobs:
 
   create-release:
     needs: build
+    if: ${{ github.event.inputs.create_release == 'true' }}
     runs-on: ubuntu-latest
 
     permissions:
