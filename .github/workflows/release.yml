@@ -1,0 +1,113 @@
+# Publishes one plugin from this monorepo to its Marketplace-facing GitHub
+# release repository. Obsidian release requirements:
+# https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin
+name: Release
+run-name: Release ${{ inputs.plugin_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_name:
+        description: Plugin name to release (for example, drag-drop-sort)
+        required: true
+        type: string
+
+# This repository is only read. The separate release repositories are written
+# with RELEASE_REPO_TOKEN, a repository secret configured on this monorepo.
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate input
+        shell: bash
+        env:
+          PLUGIN_NAME: ${{ inputs.plugin_name }}
+        run: |
+          if [[ ! "$PLUGIN_NAME" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            echo "plugin_name must contain lowercase letters, digits, and hyphens only." >&2
+            exit 1
+          fi
+
+      # This monorepo remains the only development source of truth.
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      # Install locked dependencies, then compile main.ts to dist/main.js.
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/${{ inputs.plugin_name }}/package-lock.json
+
+      - name: Install and build
+        shell: bash
+        env:
+          PLUGIN_NAME: ${{ inputs.plugin_name }}
+        run: |
+          npm ci --prefix "src/$PLUGIN_NAME"
+          npm run build --prefix "src/$PLUGIN_NAME"
+          test -f "src/$PLUGIN_NAME/dist/main.js"
+
+      # Check out the target repository with the release token. checkout keeps
+      # the token out of the remote URL while allowing the later git push.
+      - name: Check out release repository
+        uses: actions/checkout@v7
+        with:
+          repository: summerdawn-ai/obsidian-${{ inputs.plugin_name }}
+          token: ${{ secrets.RELEASE_REPO_TOKEN }}
+          path: release-repo
+          persist-credentials: true
+
+      # Fail early when the target repository already has a release tag matching
+      # this plugin's manifest version, before modifying the target repository.
+      - name: Check version has not been published
+        shell: bash
+        env:
+          PLUGIN_NAME: ${{ inputs.plugin_name }}
+        run: |
+          version="$(node -p "require('./src/' + process.env.PLUGIN_NAME + '/manifest.json').version")"
+          if git -C release-repo ls-remote --exit-code --tags origin "refs/tags/$version" > /dev/null; then
+            echo "Version $version has already been published. Update manifest.json before running this workflow." >&2
+            exit 1
+          fi
+
+      # The target repository branch intentionally contains only its README,
+      # license, and the current manifest.json. Obsidian reads this manifest to
+      # find the latest version; main.js and styles.css are not committed here.
+      - name: Update release repository
+        shell: bash
+        env:
+          PLUGIN_NAME: ${{ inputs.plugin_name }}
+        run: |
+          cp "src/$PLUGIN_NAME/manifest.json" release-repo/manifest.json
+          cd release-repo
+          git config user.name "summerdawn-ai release bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Release ${{ inputs.plugin_name }}"
+            git push origin HEAD:main
+          fi
+
+      # Marketplace installs download these three GitHub Release assets. main.js
+      # and styles.css are deliberately release-only files, not repository files.
+      # The release version comes directly from this plugin's manifest.json.
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          PLUGIN_NAME: ${{ inputs.plugin_name }}
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+        run: |
+          version="$(node -p "require('./src/' + process.env.PLUGIN_NAME + '/manifest.json').version")"
+          gh release create "$version" \
+            "src/$PLUGIN_NAME/dist/main.js#main.js" \
+            "src/$PLUGIN_NAME/manifest.json#manifest.json" \
+            "src/$PLUGIN_NAME/styles.css#styles.css" \
+            --repo "summerdawn-ai/obsidian-$PLUGIN_NAME" \
+            --title "$version" \
+            --generate-notes
