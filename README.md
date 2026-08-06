@@ -8,8 +8,8 @@ The current plugins are geared towards users who are migrating from OneNote to O
 
 ### Plugins
 
-- [Drag and Drop Sort](src/drag-drop-sort/README.md): Adds drag-and-drop custom ordering to the Obsidian file explorer with interspersed files and folders.
-- [File Explorer Filter](src/file-explorer-filter/README.md): Filters the Obsidian file explorer by top-level folder and `[DONE]` status.
+- [Drag and Drop Sort](src/drag-drop-sort/README.md): Adds drag-and-drop custom ordering to the Obsidian File explorer with interspersed files and folders.
+- [File Explorer Filter](src/file-explorer-filter/README.md): Filters the Obsidian File explorer by top-level folder and `[DONE]` status.
 
 ## Development
 

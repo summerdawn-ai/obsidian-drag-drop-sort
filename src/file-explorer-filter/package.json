@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-file-explorer-filter",
 	"version": "1.0.0",
-	"description": "Filter the Obsidian file explorer by top-level folder and configurable name text.",
+	"description": "Filter the File explorer by top-level folder and optionally hide files and folders matching configurable text.",
 	"main": "dist/main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",

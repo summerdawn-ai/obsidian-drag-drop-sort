@@ -92,7 +92,7 @@ export default class CustomSortPlugin extends Plugin {
 			})
 		);
 
-		// Re-patch if layout changes (e.g. file explorer re-opened)
+		// Re-patch if layout changes (e.g. File explorer re-opened)
 		this.registerEvent(
 			this.app.workspace.on('layout-change', () => {
 				if (!this.patched) {
@@ -142,13 +142,13 @@ export default class CustomSortPlugin extends Plugin {
 		this.requestSort();
 	}
 
-	/** Get the file explorer leaf (public for DragHandler). */
+	/** Get the File explorer leaf (public for DragHandler). */
 	getFileExplorerLeaf(): WorkspaceLeaf | null {
 		const leaves = this.app.workspace.getLeavesOfType('file-explorer');
 		return leaves.length > 0 ? leaves[0] : null;
 	}
 
-	/** Request a re-sort of the file explorer and re-setup drag handlers. */
+	/** Request a re-sort of the File explorer and re-setup drag handlers. */
 	requestSort(): void {
 		const leaf = this.getFileExplorerLeaf();
 		if (leaf) {
@@ -184,7 +184,7 @@ export default class CustomSortPlugin extends Plugin {
 					const order = plugin.settings.orders[folder.path];
 					if (!order || order.length === 0) return items;
 
-					return plugin.sortExplorerItems(items, folder.path, order);
+					return plugin.sortExplorerItems(items, order);
 				}
 		);
 
@@ -217,8 +217,8 @@ export default class CustomSortPlugin extends Plugin {
 	}
 
 	/** Sort items using custom order — interspersed files & folders. */
-	sortExplorerItems(items: any[], folderPath: string, order: string[]): any[] {
-		return sortItems(items, folderPath, order);
+	sortExplorerItems(items: any[], order: string[]): any[] {
+		return sortItems(items, order);
 	}
 
 	private registerSortCommands(): void {

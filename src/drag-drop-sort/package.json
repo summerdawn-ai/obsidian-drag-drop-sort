@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-drag-drop-sort",
 	"version": "1.0.0",
-	"description": "Drag & drop to reorder files and folders interspersed in the Obsidian file explorer.",
+	"description": "Drag & drop to reorder files and folders in the File explorer, with context-menu and command-palette controls.",
 	"main": "dist/main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",

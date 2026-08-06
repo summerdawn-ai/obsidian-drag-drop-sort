@@ -1,14 +1,14 @@
 # Drag and Drop Sort
 
-Extension for Obsidian to provide custom drag & drop reordering in the file explorer.
+Extension for Obsidian to provide custom drag & drop reordering in the File explorer.
 
 ## Overview
 
-Drag and Drop Sort adds custom drag-and-drop ordering to the Obsidian file explorer. Files and folders can be freely interspersed, which works well for OneNote-style folder notes.
+Drag and Drop Sort adds custom drag-and-drop ordering to Obsidian's File explorer. Files and folders can be freely interspersed, like in OneNote.
 
 ### Features
 
-- **Fully Custom Sort Order**: Customize sort order by dragging and dropping folders or notes directly in the file explorer.
+- **Fully Custom Sort Order**: Customize sort order by dragging and dropping folders or notes directly in the File explorer.
 - **Handles Renames and Moves**: Keeps custom ordering through renames and moves.
 - **Context Menu and Command Palette**: Alternatively, use context-menu items or the command palette to move items up, down, to the top, or to the bottom. The commands can also be assigned hotkeys in Settings → Hotkeys.
 - **Reset Controls**: Reset a folder or an entire branch of descendants.
@@ -38,13 +38,13 @@ Drag and Drop Sort adds custom drag-and-drop ordering to the Obsidian file explo
 
 ## Usage
 
-Drag any file or folder in the file explorer. A blue drop indicator shows where the item will land; release to commit the new order. Dropping between rows in another folder moves the item into that folder at that position.
+Drag any file or folder in the File explorer. A blue drop indicator shows where the item will land; release to commit the new order. Dropping between rows in another folder moves the item into that folder at that position.
 
 You can also right-click an item and use **Drag and Drop Sort commands** to move it up, down, to the top, or to the bottom. Right-click a folder and choose **Reset sort** to remove that folder's saved order, or **Reset sort (all descendants)** to remove the folder's order and all custom orders below it.
 
 ## How it Works
 
-The plugin patches `getSortedFolderItems()` on the internal file explorer view, makes visible tree items draggable, and saves each changed folder's order to `data.json`. Dropping across folders also moves the item through Obsidian's file manager. Hidden rows and unsupported file types are excluded from positional calculations so the drop position matches what is visible.
+The plugin patches `getSortedFolderItems()` on the internal File explorer view, makes visible tree items draggable, and saves each changed folder's order to `data.json`. Dropping across folders also moves the item through Obsidian's file manager. Hidden rows and unsupported file types are excluded from positional calculations so the drop position matches what is visible.
 
 ### Data Format
 

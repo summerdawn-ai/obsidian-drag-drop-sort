@@ -10,7 +10,7 @@ interface DragState {
 }
 
 /**
- * Handles drag-and-drop reordering in the file explorer.
+ * Handles drag-and-drop reordering in the File explorer.
  *
  * Custom drag/drop behavior that supports:
  * - Reordering within a folder (before/after target rows)
@@ -36,7 +36,7 @@ export class DragHandler {
 	}
 
 	/**
-	 * Set up drag-and-drop on all items in the file explorer.
+	 * Set up drag-and-drop on all items in the File explorer.
 	 */
 	setup(explorerView: any): void {
 		this.cleanup();
@@ -215,12 +215,12 @@ export class DragHandler {
 		};
 
 		const onDrop = async (e: DragEvent) => {
-		if (!this.state.draggedFile) return;
-		if (this.isSameFile(this.state.draggedFile, file)) return;
+			if (!this.state.draggedFile) return;
+			if (this.isSameFile(this.state.draggedFile, file)) return;
 
-		const rect = el.getBoundingClientRect();
-		const insertBefore = e.clientY < rect.top + rect.height / 2;
-		await this.handleDrop(e, el, file, insertBefore);
+			const rect = el.getBoundingClientRect();
+			const insertBefore = e.clientY < rect.top + rect.height / 2;
+			await this.handleDrop(e, el, file, insertBefore);
 		};
 
 		el.addEventListener('dragstart', onDragStart);

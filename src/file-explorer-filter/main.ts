@@ -67,7 +67,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 
 		this.addCommand({
 			id: "show-file-explorer-filter-menu",
-			name: "Show file explorer filter menu",
+			name: "Show File Explorer Filter menu",
 			callback: () => this.showFilterMenu(),
 		});
 		this.addCommand({
@@ -165,11 +165,11 @@ export default class FileExplorerFilterPlugin extends Plugin {
 				);
 				if (toolbar) {
 					// Register one button per explorer container because workspaces can
-					// contain multiple file explorer leaves.
+					// contain multiple File explorer leaves.
 					const button = document.createElement("div");
 					button.addClass("clickable-icon", "nav-action-button");
 					button.addClass(BUTTON_CLASS);
-					button.setAttribute("aria-label", "Filter file explorer");
+					button.setAttribute("aria-label", "Filter File explorer");
 					button.setAttribute("role", "button");
 					button.tabIndex = 0;
 					setIcon(button, "list-filter");
@@ -370,7 +370,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 				: "";
 			button.setAttribute(
 				"aria-label",
-				`File explorer filter: ${scopeLabel}${nameFilterLabel}`,
+				`File Explorer Filter: ${scopeLabel}${nameFilterLabel}`,
 			);
 			button.toggleClass(
 				"is-active",
@@ -400,7 +400,7 @@ export default class FileExplorerFilterPlugin extends Plugin {
 			}
 
 			// Keep rows in the DOM and hide them with CSS so ordering and other
-			// File Explorer plugins continue to operate on the same tree.
+			// File explorer plugins continue to operate on the same tree.
 			const hiddenByScope = !this.isPathInScope(path);
 			const hiddenByName =
 				this.filterSettings.nameFilterEnabled &&

@@ -1,15 +1,14 @@
-import { TAbstractFile, TFile, TFolder } from 'obsidian';
+import { TFile, TFolder } from 'obsidian';
 
 /**
- * Sort an array of Obsidian file explorer items according to the custom order
- * for the given folder path. Files and folders are interspersed.
+ * Sort an array of Obsidian File explorer items according to the custom order.
+ * Files and folders are interspersed.
  *
  * Items in the order array come first in their listed order.
  * Items NOT in the order array come after: folders first (alphabetical), then files (alphabetical).
  */
 export function sortItems(
 	items: any[],
-	folderPath: string,
 	order: string[]
 ): any[] {
 	if (order.length === 0) return items;
