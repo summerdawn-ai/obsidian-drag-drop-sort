@@ -1,6 +1,6 @@
 # Obsidian Plugins
 
-This repository contains plugins for the Obsidian note-taking application.
+Plugins for the Obsidian note-taking application.
 
 ## Overview
 
