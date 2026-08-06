@@ -453,7 +453,7 @@ class FileExplorerFilterSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "File Explorer Filter" });
+		new Setting(containerEl).setName("File Explorer Filter").setHeading();
 
 		new Setting(containerEl)
 			.setName("Show name filter")
