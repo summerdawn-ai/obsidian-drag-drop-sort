@@ -10,7 +10,7 @@ File Explorer Filter adds a filter button to Obsidian's file explorer to switch 
 
 - **Switch Folder Context**: Easily switch visual context between folders while staying in the same notebook.
 - **Completed Notes**: Hide completed notes using a customizable pattern, such as `[DONE]`.
-- **CSS-Based**: Use filtering alongside other file explorer plugins, including Drag & Drop Sort.
+- **CSS-Based**: Use filtering alongside other file explorer plugins, including Drag and Drop Sort.
 - **Non-Destructive**: Keep hidden items available through search, links, backlinks, and the quick switcher.
 
 ### Version History

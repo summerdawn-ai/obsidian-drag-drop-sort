@@ -298,7 +298,7 @@ export default class CustomSortPlugin extends Plugin {
 			menu.addItem((item) => {
 				// setSubmenu is available at runtime but is missing from older Obsidian typings.
 				const submenu = (item as unknown as MenuItemWithSubmenu).setSubmenu();
-				item.setTitle('Drag & Drop Sort commands').setIcon('move');
+				item.setTitle('Drag and Drop Sort commands').setIcon('move');
 				this.addSortMenuItems(submenu, file, folder, moveActions);
 			});
 		} else {

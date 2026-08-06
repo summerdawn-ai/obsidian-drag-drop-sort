@@ -1,10 +1,10 @@
-# Drag & Drop Sort
+# Drag and Drop Sort
 
 Extension for Obsidian to provide custom drag & drop reordering in the file explorer.
 
 ## Overview
 
-Drag & Drop Sort adds custom drag-and-drop ordering to the Obsidian file explorer. Files and folders can be freely interspersed, which works well for OneNote-style folder notes.
+Drag and Drop Sort adds custom drag-and-drop ordering to the Obsidian file explorer. Files and folders can be freely interspersed, which works well for OneNote-style folder notes.
 
 ### Features
 
@@ -15,7 +15,7 @@ Drag & Drop Sort adds custom drag-and-drop ordering to the Obsidian file explore
 
 ### Version History
 
-- **1.0.0 (2026-08-04)**: Rename to "Drag & Drop Sort", add context-menu and command-palette sort commands, and fix explorer drop handling and defensive drop guards.
+- **1.0.0 (2026-08-04)**: Rename to "Drag and Drop Sort", add context-menu and command-palette sort commands, and fix explorer drop handling and defensive drop guards.
 - **0.12.0-alpha (2026-06-09)**: Remove modifier-key behavior, add cross-folder insertion and empty/collapsed-folder drop targets.
 - **0.11.0-alpha (2026-06-08)**: Handle rename remapping so custom orders remain aligned with renamed files and folders.
 - **0.1.0-alpha (2026-06-08)**: Provide the initial Custom Sort plugin with custom file and folder ordering.
@@ -34,13 +34,13 @@ Drag & Drop Sort adds custom drag-and-drop ordering to the Obsidian file explore
 
 2. Copy `dist/main.js`, `manifest.json`, and `styles.css` into `.obsidian/plugins/drag-drop-sort/`.
 
-3. Enable **Drag & Drop Sort** under **Settings > Community plugins**.
+3. Enable **Drag and Drop Sort** under **Settings > Community plugins**.
 
 ## Usage
 
 Drag any file or folder in the file explorer. A blue drop indicator shows where the item will land; release to commit the new order. Dropping between rows in another folder moves the item into that folder at that position.
 
-You can also right-click an item and use **Drag & Drop Sort commands** to move it up, down, to the top, or to the bottom. Right-click a folder and choose **Reset sort** to remove that folder's saved order, or **Reset sort (all descendants)** to remove the folder's order and all custom orders below it.
+You can also right-click an item and use **Drag and Drop Sort commands** to move it up, down, to the top, or to the bottom. Right-click a folder and choose **Reset sort** to remove that folder's saved order, or **Reset sort (all descendants)** to remove the folder's order and all custom orders below it.
 
 ## How it Works
 
@@ -63,7 +63,7 @@ Only folders you've actually reordered appear in this file. The order array cont
 
 ## Acknowledgements
 
-Drag & Drop Sort is an independent implementation based on the architecture and patterns of [Folder Sort Rules](https://github.com/wepee/obsidian-folder-sort-rules) by Adam. The `getSortedFolderItems` monkey-patch and per-item drag handler pattern are adapted from that MIT-licensed codebase.
+Drag and Drop Sort is an independent implementation based on the architecture and patterns of [Folder Sort Rules](https://github.com/wepee/obsidian-folder-sort-rules) by Adam. The `getSortedFolderItems` monkey-patch and per-item drag handler pattern are adapted from that MIT-licensed codebase.
 
 ## License
 

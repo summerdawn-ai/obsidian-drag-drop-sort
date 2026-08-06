@@ -1,7 +1,7 @@
 {
 	"id": "drag-drop-sort",
-	"name": "Drag & Drop Sort",
-	"version": "1.0.0",
+	"name": "Drag and Drop Sort",
+	"version": "1.0.1",
 	"minAppVersion": "1.12.0",
 	"description": "Drag & drop to reorder files and folders in the Obsidian file explorer, with context-menu and command-palette controls.",
 	"author": "summerdawn.ai",
