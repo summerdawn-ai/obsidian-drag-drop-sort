@@ -15,6 +15,9 @@ Drag and Drop Sort adds custom drag-and-drop ordering to Obsidian's File explore
 
 ### Version History
 
+- **1.0.3 (2026-08-06)**: Update the README to reference the main source repository.
+- **1.0.2 (2026-08-06)**: Correct the marketplace description and capitalization.
+- **1.0.1 (2026-08-06)**: Rename the plugin to "Drag and Drop Sort" to meet Obsidian's naming guidelines.
 - **1.0.0 (2026-08-04)**: Rename to "Drag and Drop Sort", add context-menu and command-palette sort commands, and fix explorer drop handling and defensive drop guards.
 - **0.12.0-alpha (2026-06-09)**: Remove modifier-key behavior, add cross-folder insertion and empty/collapsed-folder drop targets.
 - **0.11.0-alpha (2026-06-08)**: Handle rename remapping so custom orders remain aligned with renamed files and folders.
@@ -22,12 +25,16 @@ Drag and Drop Sort adds custom drag-and-drop ordering to Obsidian's File explore
 
 ## Installation
 
+### Community Plugins
+
+Open **Settings → Community plugins → Browse**, search for **Drag and Drop Sort**, then select **Install** and **Enable**.
+
 ### Manual
 
 1. Build the plugin:
 
   ```bash
-  cd src/drag-drop-sort
+  cd src/drag-drop-sort # Use `cd src` in the release repository
   npm install
   npm run build
   ```
@@ -60,6 +67,11 @@ The plugin stores one simple object in `.obsidian/plugins/drag-drop-sort/data.js
 ```
 
 Only folders you've actually reordered appear in this file. The order array contains item *names* (not full paths), and files and folders are freely mixed together.
+
+## Resources
+
+- [Main GitHub repository](https://github.com/summerdawn-ai/obsidian-plugins)
+- [Releases](https://github.com/summerdawn-ai/obsidian-drag-drop-sort/releases)
 
 ## Acknowledgements
 

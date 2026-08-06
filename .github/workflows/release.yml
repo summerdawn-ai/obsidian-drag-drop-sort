@@ -1,8 +1,8 @@
 # Publishes one plugin from this monorepo to its Marketplace-facing GitHub
-# release repository. Obsidian release requirements:
+# repository. Obsidian release requirements:
 # https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin
 name: Release
-run-name: Release ${{ inputs.plugin_name }}
+run-name: Release ${{ inputs.plugin_name }} v${{ inputs.version }}
 
 on:
   workflow_dispatch:
@@ -11,32 +11,47 @@ on:
         description: Plugin name to release (for example, drag-drop-sort)
         required: true
         type: string
-
-# This repository is only read. The separate release repositories are written
-# with RELEASE_REPO_TOKEN, a repository secret configured on this monorepo.
-permissions:
-  contents: read
+      version:
+        description: Version number (SemVer, for example, 1.0.2)
+        required: true
+        type: string
 
 jobs:
-  release:
+  validate:
     runs-on: ubuntu-latest
-
+    permissions: {}
     steps:
       - name: Validate input
         shell: bash
         env:
           PLUGIN_NAME: ${{ inputs.plugin_name }}
+          VERSION: ${{ inputs.version }}
         run: |
+          # Plugin names identify the source directory and public repository.
           if [[ ! "$PLUGIN_NAME" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
             echo "plugin_name must contain lowercase letters, digits, and hyphens only." >&2
             exit 1
           fi
 
-      # This monorepo remains the only development source of truth.
+          # Accept 1.2.3 and prereleases such as 1.2.3-preview.1.
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$'; then
+            echo "Version must be valid SemVer, for example, 1.0.0 or 1.0.0-preview.1." >&2
+            exit 1
+          fi
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+
+    # This monorepo is read-only. The release token writes the separate public
+    # repository and creates its GitHub Release.
+    permissions:
+      contents: read
+
+    steps:
       - name: Check out source
         uses: actions/checkout@v7
 
-      # Install locked dependencies, then compile main.ts to dist/main.js.
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
@@ -44,17 +59,22 @@ jobs:
           cache: npm
           cache-dependency-path: src/${{ inputs.plugin_name }}/package-lock.json
 
-      - name: Install and build
+      # The workflow input is the release tag. It must exactly match the
+      # manifest that will be committed and published.
+      - name: Check manifest version
         shell: bash
         env:
           PLUGIN_NAME: ${{ inputs.plugin_name }}
+          VERSION: ${{ inputs.version }}
         run: |
-          npm ci --prefix "src/$PLUGIN_NAME"
-          npm run build --prefix "src/$PLUGIN_NAME"
-          test -f "src/$PLUGIN_NAME/dist/main.js"
+          manifest_version="$(node -p "require('./src/' + process.env.PLUGIN_NAME + '/manifest.json').version")"
+          if [[ "$manifest_version" != "$VERSION" ]]; then
+            echo "Version $VERSION does not match src/$PLUGIN_NAME/manifest.json ($manifest_version)." >&2
+            exit 1
+          fi
 
-      # Check out the target repository with the release token. checkout keeps
-      # the token out of the remote URL while allowing the later git push.
+      # checkout keeps the token out of the remote URL while allowing the
+      # later git push.
       - name: Check out release repository
         uses: actions/checkout@v7
         with:
@@ -63,51 +83,100 @@ jobs:
           path: release-repo
           persist-credentials: true
 
-      # Fail early when the target repository already has a release tag matching
-      # this plugin's manifest version, before modifying the target repository.
+      # Do not rewrite the target source when that version is already released.
       - name: Check version has not been published
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if git -C release-repo ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
+            echo "Version $VERSION has already been published. Update manifest.json before running this workflow." >&2
+            exit 1
+          fi
+
+      # Make src an exact copy of the selected plugin's tracked source files.
+      # README.md and manifest.json are moved to the public repository root;
+      # all other source files remain in src. git archive avoids copying local
+      # dependencies and generated files without maintaining a file list here.
+      - name: Mirror plugin source
         shell: bash
         env:
           PLUGIN_NAME: ${{ inputs.plugin_name }}
         run: |
-          version="$(node -p "require('./src/' + process.env.PLUGIN_NAME + '/manifest.json').version")"
-          if git -C release-repo ls-remote --exit-code --tags origin "refs/tags/$version" > /dev/null; then
-            echo "Version $version has already been published. Update manifest.json before running this workflow." >&2
-            exit 1
-          fi
+          rm -rf release-repo/src
+          mkdir -p release-repo/src
+          git archive --format=tar "HEAD:src/$PLUGIN_NAME" | tar -x -C release-repo/src
+          mv -f release-repo/src/README.md release-repo/README.md
+          mv -f release-repo/src/manifest.json release-repo/manifest.json
 
-      # The target repository branch intentionally contains only its README,
-      # license, and the current manifest.json. Obsidian reads this manifest to
-      # find the latest version; main.js and styles.css are not committed here.
+      # Build from the mirrored source. This is the same source that reviewers
+      # see in the public repository and produces the release's main.js asset.
+      - name: Install and build
+        shell: bash
+        run: |
+          npm ci --prefix release-repo/src
+          npm run build --prefix release-repo/src
+          test -f release-repo/src/dist/main.js
+
+      # Commit the source, README, manifest, and build configuration. main.js
+      # and styles.css are attached to the GitHub Release below, as required by
+      # Obsidian, instead of being committed as generated release artifacts.
       - name: Update release repository
         shell: bash
         env:
           PLUGIN_NAME: ${{ inputs.plugin_name }}
+          VERSION: ${{ inputs.version }}
         run: |
-          cp "src/$PLUGIN_NAME/manifest.json" release-repo/manifest.json
           cd release-repo
           git config user.name "summerdawn-ai release bot"
           git config user.email "release-bot@users.noreply.github.com"
-          git add manifest.json
+          git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "Release ${{ inputs.plugin_name }}"
+            git commit -m "Release $PLUGIN_NAME $VERSION"
             git push origin HEAD:main
           fi
 
-      # Marketplace installs download these three GitHub Release assets. main.js
-      # and styles.css are deliberately release-only files, not repository files.
-      # The release version comes directly from this plugin's manifest.json.
-      - name: Publish GitHub Release
+      # Pass exactly the three Marketplace release assets to the next job.
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          mkdir release-assets
+          cp release-repo/src/dist/main.js release-assets/main.js
+          cp release-repo/manifest.json release-assets/manifest.json
+          cp release-repo/src/styles.css release-assets/styles.css
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: release-assets
+          retention-days: 1
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: release-assets
+
+      # Marketplace installs download these three GitHub Release assets.
+      - name: Create GitHub Release
         shell: bash
         env:
-          PLUGIN_NAME: ${{ inputs.plugin_name }}
+          VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
         run: |
-          version="$(node -p "require('./src/' + process.env.PLUGIN_NAME + '/manifest.json').version")"
-          gh release create "$version" \
-            "src/$PLUGIN_NAME/dist/main.js#main.js" \
-            "src/$PLUGIN_NAME/manifest.json#manifest.json" \
-            "src/$PLUGIN_NAME/styles.css#styles.css" \
-            --repo "summerdawn-ai/obsidian-$PLUGIN_NAME" \
-            --title "$version" \
+          gh release create "$VERSION" \
+            "release-assets/main.js#main.js" \
+            "release-assets/manifest.json#manifest.json" \
+            "release-assets/styles.css#styles.css" \
+            --repo "summerdawn-ai/obsidian-${{ inputs.plugin_name }}" \
+            --title "$VERSION" \
             --generate-notes

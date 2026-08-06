@@ -15,17 +15,23 @@ File Explorer Filter adds a filter button to Obsidian's File explorer to switch 
 
 ### Version History
 
+- **1.0.2 (2026-08-06)**: Update the README to reference the main source repository.
+- **1.0.1 (2026-08-06)**: Correct the marketplace description and capitalization.
 - **1.0.0 (2026-08-04)**: Fix initialization and virtual-scroll layout invalidation after filtering and scope changes.
 - **0.1.0-alpha (2026-06-09)**: Initial version with folder filter and configurable name filtering.
 
 ## Installation
+
+### Community Plugins
+
+Open **Settings → Community plugins → Browse**, search for **File Explorer Filter**, then select **Install** and **Enable**.
 
 ### Manual
 
 1. Build the plugin:
 
   ```bash
-  cd src/file-explorer-filter
+  cd src/file-explorer-filter # Use `cd src` in the release repository
   npm install
   npm run build
   ```
@@ -48,6 +54,11 @@ You can also use the command palette commands **File Explorer Filter: Show File 
 When the plugin loads, it waits for the workspace layout and then applies the saved folder and name filters to every File explorer view. It also reruns this setup when Obsidian rebuilds the explorer, and refreshes the view when files are created, deleted, or renamed.
 
 The filter keeps explorer rows in the DOM and applies a CSS class to rows outside the selected folder or matching the configured name pattern. When the filter changes, the view is refreshed; switching folders also invalidates Obsidian's virtual-scroll layout so the visible rows are recalculated immediately. The plugin does not patch `getSortedFolderItems()` or alter vault files, so it remains independent from explorer sorting plugins.
+
+## Resources
+
+- [Main GitHub repository](https://github.com/summerdawn-ai/obsidian-plugins)
+- [Releases](https://github.com/summerdawn-ai/obsidian-file-explorer-filter/releases)
 
 ## License
 

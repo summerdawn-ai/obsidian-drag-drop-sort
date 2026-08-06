@@ -11,6 +11,19 @@ The current plugins are geared towards users who are migrating from OneNote to O
 - [Drag and Drop Sort](src/drag-drop-sort/README.md): Adds drag-and-drop custom ordering to the Obsidian File explorer with interspersed files and folders.
 - [File Explorer Filter](src/file-explorer-filter/README.md): Filters the Obsidian File explorer by top-level folder and `[DONE]` status.
 
+## Versioning and Releases
+
+All plugins are built and released using [the repository's `release.yml` workflow](.github/workflows/release.yml). They are versioned independently using [Semantic Versioning](https://semver.org/).
+
+Each plugin is published as a separate community plugin, with release assets published to a corresponding GitHub Release:
+
+- GitHub Releases:
+  - [Drag and Drop Sort](https://github.com/summerdawn-ai/obsidian-drag-drop-sort/releases)
+  - [File Explorer Filter](https://github.com/summerdawn-ai/obsidian-file-explorer-filter/releases)
+- Community plugins:
+  - [Drag and Drop Sort](https://community.obsidian.md/plugins/drag-drop-sort)
+  - [File Explorer Filter](https://community.obsidian.md/plugins/file-explorer-filter)
+
 ## Development
 
 Load a plugin unpacked from its folder under `src/`:

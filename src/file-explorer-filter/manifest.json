@@ -1,7 +1,7 @@
 {
 	"id": "file-explorer-filter",
 	"name": "File Explorer Filter",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "1.4.0",
 	"description": "Filter the File explorer by top-level folder and optionally hide files and folders matching configurable text.",
 	"author": "summerdawn.ai",
