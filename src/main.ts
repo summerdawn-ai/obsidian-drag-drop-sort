@@ -217,7 +217,7 @@ export default class CustomSortPlugin extends Plugin {
 			this.dragSetupTimer = null;
 			const leaf = this.getFileExplorerLeaf();
 			if (leaf) {
-				this.dragHandler.setup(leaf.view as unknown as FileExplorerView);
+				this.dragHandler.setup(leaf.view);
 			}
 		}, 100);
 	}
@@ -543,4 +543,4 @@ export default class CustomSortPlugin extends Plugin {
 	}
 }
 
-/* eslint-enable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+/* eslint-enable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- End the documented Obsidian API boundary exception. */

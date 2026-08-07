@@ -18,7 +18,7 @@ export interface FileExplorerItem {
 /** The stable part of Obsidian's internal File explorer view we use. */
 export interface FileExplorerView {
 	containerEl: HTMLElement;
-	fileItems: Record<string, FileExplorerItem>;
+	fileItems?: Record<string, FileExplorerItem>;
 	getSortedFolderItems?: (folder: import('obsidian').TFolder) => FileExplorerItem[];
 	requestSort?: () => void;
 }
