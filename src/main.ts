@@ -1,5 +1,4 @@
-/* Obsidian's public API contains intentionally untyped internals; the plugin narrows them at its boundaries. */
-/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- Obsidian's public API contains intentionally untyped internals; the plugin narrows them at its boundaries. */
 import {
 	Menu,
 	Platform,
@@ -543,3 +542,5 @@ export default class CustomSortPlugin extends Plugin {
 		return idx === -1 ? path : path.substring(idx + 1);
 	}
 }
+
+/* eslint-enable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */

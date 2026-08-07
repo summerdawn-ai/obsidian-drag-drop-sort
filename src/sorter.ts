@@ -1,5 +1,4 @@
-/* Obsidian's public API contains intentionally untyped internals; the plugin narrows them at its boundaries. */
-/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- Obsidian's public API contains intentionally untyped internals; the plugin narrows them at its boundaries. */
 import { TFile, TFolder } from 'obsidian';
 import type { FileExplorerItem } from './types';
 
@@ -67,3 +66,5 @@ export function buildOrderFromItems(items: FileExplorerItem[]): string[] {
 		.filter((item) => item && item.file)
 		.map((item) => item.file.name);
 }
+
+/* eslint-enable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */

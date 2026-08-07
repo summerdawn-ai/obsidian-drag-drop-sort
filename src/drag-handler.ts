@@ -1,5 +1,4 @@
-/* Obsidian's public API contains intentionally untyped internals; the plugin narrows them at its boundaries. */
-/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- Obsidian's public API contains intentionally untyped internals; the plugin narrows them at its boundaries. */
 import { TAbstractFile, TFolder } from 'obsidian';
 import type CustomSortPlugin from './main';
 import type { FileExplorerItem, FileExplorerView } from './types';
@@ -49,9 +48,9 @@ export class DragHandler {
 		const fileItems = explorerView.fileItems;
 		if (!fileItems) return;
 
-		const explorerEl = explorerView.containerEl?.querySelector(
+		const explorerEl = explorerView.containerEl?.querySelector<HTMLElement>(
 			'.nav-files-container'
-		) as HTMLElement | null;
+		);
 		if (explorerEl) {
 			const onExplorerDragOver = (e: DragEvent) => {
 				if (!this.state.draggedFile) return;
@@ -153,7 +152,7 @@ export class DragHandler {
 		this.visibleByParent.clear();
 		for (const item of Object.values(fileItems)) {
 			if (!item || !item.file || !item.selfEl) continue;
-			if (item.file.isRoot?.()) continue;
+			if (item.file.path === '') continue;
 			const itemEl = item.selfEl as HTMLElement;
 			if (itemEl.offsetParent === null) continue;
 
@@ -168,7 +167,7 @@ export class DragHandler {
 
 		for (const item of Object.values(fileItems)) {
 			if (!item || !item.file || !item.selfEl) continue;
-			if (item.file.isRoot?.()) continue;
+			if (item.file.path === '') continue;
 
 			const parentPath: string = item.file.parent?.path ?? '';
 
@@ -757,3 +756,5 @@ export class DragHandler {
 		this.visibleByParent.clear();
 	}
 }
+
+/* eslint-enable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */

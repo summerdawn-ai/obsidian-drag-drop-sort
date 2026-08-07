@@ -11,7 +11,7 @@ export interface CustomSortSettings {
 
 /** The stable part of Obsidian's internal File explorer row model we use. */
 export interface FileExplorerItem {
-	file: import('obsidian').TAbstractFile & { isRoot?: () => boolean };
+	file: import('obsidian').TAbstractFile;
 	selfEl: HTMLElement;
 }
 
