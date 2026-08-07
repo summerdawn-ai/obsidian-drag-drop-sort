@@ -1,49 +1,87 @@
-# Obsidian Plugins
+# Drag and Drop Sort
 
-Plugins for the Obsidian note-taking application.
+Plugin for Obsidian to provide custom drag & drop reordering in the File explorer.
 
 ## Overview
 
-The current plugins are geared towards users who are migrating from OneNote to Obsidian.
+Drag and Drop Sort adds custom drag-and-drop ordering to Obsidian's File explorer. Files and folders can be freely interspersed, like in OneNote.
 
-### Plugins
+### Features
 
-- [Drag and Drop Sort](src/drag-drop-sort/README.md): Adds drag-and-drop custom ordering to the Obsidian File explorer with interspersed files and folders.
-- [File Explorer Filter](src/file-explorer-filter/README.md): Filters the Obsidian File explorer by top-level folder and `[DONE]` status.
+- **Fully Custom Sort Order**: Customize sort order by dragging and dropping folders or notes directly in the File explorer.
+- **Handles Renames and Moves**: Keeps custom ordering through renames and moves.
+- **Context Menu and Command Palette**: Alternatively, use context-menu items or the command palette to move items up, down, to the top, or to the bottom. The commands can also be assigned hotkeys in Settings → Hotkeys.
+- **Reset Controls**: Reset a folder or an entire branch of descendants.
+
+## Installation
+
+### Community Plugins
+
+Open **Settings → Community plugins → Browse**, search for **Drag and Drop Sort**, then select **Install** and **Enable**.
+
+### Manual
+
+1. Build the plugin:
+
+  ```bash
+  cd src
+  npm install
+  npm run build
+  ```
+
+2. Copy `src/dist/main.js`, `manifest.json`, and `src/styles.css` into `.obsidian/plugins/drag-drop-sort/`.
+
+3. Enable **Drag and Drop Sort** under **Settings > Community plugins**.
+
+## Usage
+
+Drag any file or folder in the File explorer. A blue drop indicator shows where the item will land; release to commit the new order. Dropping between rows in another folder moves the item into that folder at that position.
+
+You can also right-click an item and use **Drag and Drop Sort commands** to move it up, down, to the top, or to the bottom. Right-click a folder and choose **Reset sort** to remove that folder's saved order, or **Reset sort (all descendants)** to remove the folder's order and all custom orders below it.
+
+## How it Works
+
+The plugin patches `getSortedFolderItems()` on the internal File explorer view, makes visible tree items draggable, and saves each changed folder's order to `data.json`. Dropping across folders also moves the item through Obsidian's file manager. Hidden rows and unsupported file types are excluded from positional calculations so the drop position matches what is visible.
+
+### Data Format
+
+The plugin stores one simple object in `.obsidian/plugins/drag-drop-sort/data.json`:
+
+```json
+{
+  "orders": {
+    "Personal": ["Home", "Career", "Health", "Travel", "Finances"],
+    "Personal/Home": ["Furniture.md", "Plants.md", "Kitties.md", "Assets"]
+  }
+}
+```
+
+Only folders you've actually reordered appear in this file. The order array contains item *names* (not full paths), and files and folders are freely mixed together.
 
 ## Versioning and Releases
 
-All plugins are built and released using [the repository's `release.yml` workflow](.github/workflows/release.yml). They are versioned independently using [Semantic Versioning](https://semver.org/).
+This plugin is built and released using [the repository's `release.yml` workflow](.github/workflows/release.yml). It is versioned using [Semantic Versioning](https://semver.org/).
 
-Each plugin is published as a separate community plugin, with release assets published to a corresponding GitHub Release:
+It is published as a community plugin, with release assets published to a corresponding GitHub Release:
 
-- GitHub Releases:
-  - [Drag and Drop Sort](https://github.com/summerdawn-ai/obsidian-drag-drop-sort/releases)
-  - [File Explorer Filter](https://github.com/summerdawn-ai/obsidian-file-explorer-filter/releases)
-- Community plugins:
-  - [Drag and Drop Sort](https://community.obsidian.md/plugins/drag-drop-sort)
-  - [File Explorer Filter](https://community.obsidian.md/plugins/file-explorer-filter)
+- [GitHub Releases](https://github.com/summerdawn-ai/obsidian-drag-drop-sort/releases)
+- [Drag and Drop Sort on Community plugins](https://community.obsidian.md/plugins/drag-drop-sort)
 
 ## Development
 
-Load a plugin unpacked from its folder under `src/`:
-
-1. Open the plugin folder.
-2. Install dependencies with `npm install`.
-3. Run `npm run dev` for watch mode or `npm run build` for a production build.
-
-Example for Drag and Drop Sort:
+The TypeScript source lives in `src/`. Run the plugin in watch mode while developing:
 
 ```bash
-cd src/drag-drop-sort
+cd src
 npm install
 npm run dev
-npm run build
 ```
+
+Run `npm run build` for a production build.
 
 ### Chrome DevTools
 
-To inspect a plugin in Obsidian's live renderer, close any running Obsidian instance and start it with remote debugging enabled:
+To inspect the plugin in Obsidian's live renderer, close any running Obsidian instance and start it with remote debugging enabled:
 
 ```powershell
 & "C:\Program Files\Obsidian\Obsidian.exe" --remote-debugging-port=9222
@@ -62,6 +100,10 @@ Contributions are welcome. Please fork the repository, create a focused branch f
 ## Security
 
 We welcome responsible security reports. Please contact the repository owner privately with the details rather than opening a public issue, so the problem can be investigated and addressed before it is disclosed.
+
+## Acknowledgements
+
+Drag and Drop Sort is an independent implementation based on the architecture and patterns of [Folder Sort Rules](https://github.com/wepee/obsidian-folder-sort-rules) by Adam. The `getSortedFolderItems` monkey-patch and per-item drag handler pattern are adapted from that MIT-licensed codebase.
 
 ## License
 

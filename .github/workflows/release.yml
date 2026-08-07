@@ -1,44 +1,26 @@
-# Publishes one plugin from this monorepo to its Marketplace-facing GitHub
-# repository. Obsidian release requirements:
+# Builds and releases this plugin for the Obsidian Community Plugins directory.
 # https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin
 name: Release
-run-name: Release ${{ inputs.plugin_name }} v${{ inputs.version }}
+run-name: Release v${{ inputs.version }}
 
 on:
   workflow_dispatch:
     inputs:
-      plugin_name:
-        description: Plugin name to release (for example, drag-drop-sort)
-        required: true
-        type: string
       version:
-        description: Version number (SemVer, for example, 1.0.2)
+        description: 'Version number (SemVer, e.g., 1.0.0 or 1.0.0-preview.1)'
         required: true
         type: string
-      create_release:
-        description: Create GitHub Release
-        required: false
-        type: boolean
-        default: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - name: Validate input
+      - name: Validate version format
         shell: bash
         env:
-          PLUGIN_NAME: ${{ inputs.plugin_name }}
           VERSION: ${{ inputs.version }}
         run: |
-          # Plugin names identify the source directory and public repository.
-          if [[ ! "$PLUGIN_NAME" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
-            echo "plugin_name must contain lowercase letters, digits, and hyphens only." >&2
-            exit 1
-          fi
-
-          # Accept 1.2.3 and prereleases such as 1.2.3-preview.1.
           if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$'; then
             echo "Version must be valid SemVer, for example, 1.0.0 or 1.0.0-preview.1." >&2
             exit 1
@@ -47,14 +29,10 @@ jobs:
   build:
     needs: validate
     runs-on: ubuntu-latest
-
-    # This monorepo is read-only. The release token writes the separate public
-    # repository and creates its GitHub Release.
     permissions:
       contents: read
-
     steps:
-      - name: Check out source
+      - name: Check out code
         uses: actions/checkout@v7
 
       - name: Set up Node
@@ -62,95 +40,36 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: src/${{ inputs.plugin_name }}/package-lock.json
+          cache-dependency-path: src/package-lock.json
 
-      # The workflow input is the release tag. It must exactly match the
-      # manifest that will be committed and published.
       - name: Check manifest version
-        if: ${{ github.event.inputs.create_release == 'true' }}
         shell: bash
         env:
-          PLUGIN_NAME: ${{ inputs.plugin_name }}
           VERSION: ${{ inputs.version }}
         run: |
-          manifest_version="$(node -p "require('./src/' + process.env.PLUGIN_NAME + '/manifest.json').version")"
+          # Obsidian requires the release tag to exactly match manifest.json.
+          manifest_version="$(node -p "require('./manifest.json').version")"
           if [[ "$manifest_version" != "$VERSION" ]]; then
-            echo "Version $VERSION does not match src/$PLUGIN_NAME/manifest.json ($manifest_version)." >&2
+            echo "Version $VERSION does not match manifest.json ($manifest_version)." >&2
             exit 1
           fi
 
-      # checkout keeps the token out of the remote URL while allowing the
-      # later git push.
-      - name: Check out release repository
-        uses: actions/checkout@v7
-        with:
-          repository: summerdawn-ai/obsidian-${{ inputs.plugin_name }}
-          token: ${{ secrets.RELEASE_REPO_TOKEN }}
-          path: release-repo
-          persist-credentials: true
-
-      # Do not rewrite the target source when that version is already released.
-      - name: Check version has not been published
-        if: ${{ github.event.inputs.create_release == 'true' }}
-        shell: bash
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          if git -C release-repo ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
-            echo "Version $VERSION has already been published. Update manifest.json before running this workflow." >&2
-            exit 1
-          fi
-
-      # Make src an exact copy of the selected plugin's tracked source files.
-      # README.md and manifest.json are moved to the public repository root;
-      # all other source files remain in src. git archive avoids copying local
-      # dependencies and generated files without maintaining a file list here.
-      - name: Mirror plugin source
-        shell: bash
-        env:
-          PLUGIN_NAME: ${{ inputs.plugin_name }}
-        run: |
-          rm -rf release-repo/src
-          mkdir -p release-repo/src
-          git archive --format=tar "HEAD:src/$PLUGIN_NAME" | tar -x -C release-repo/src
-          mv -f release-repo/src/README.md release-repo/README.md
-          mv -f release-repo/src/manifest.json release-repo/manifest.json
-
-      # Build from the mirrored source. This is the same source that reviewers
-      # see in the public repository and produces the release's main.js asset.
       - name: Install and build
         shell: bash
         run: |
-          npm ci --prefix release-repo/src
-          npm run build --prefix release-repo/src
-          test -f release-repo/src/dist/main.js
+          # The source project lives in src and builds main.ts to dist/main.js.
+          npm ci --prefix src
+          npm run build --prefix src
+          test -f src/dist/main.js
 
-      # Commit the source, README, manifest, and build configuration. main.js
-      # and styles.css are attached to the GitHub Release below, as required by
-      # Obsidian, instead of being committed as generated release artifacts.
-      - name: Update release repository
-        shell: bash
-        env:
-          PLUGIN_NAME: ${{ inputs.plugin_name }}
-          VERSION: ${{ inputs.version }}
-        run: |
-          cd release-repo
-          git config user.name "summerdawn-ai release bot"
-          git config user.email "release-bot@users.noreply.github.com"
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "Release $PLUGIN_NAME $VERSION"
-            git push origin HEAD:main
-          fi
-
-      # Pass exactly the three Marketplace release assets to the next job.
       - name: Prepare release assets
         shell: bash
         run: |
+          # Obsidian installs these exact three filenames from the GitHub Release.
           mkdir release-assets
-          cp release-repo/src/dist/main.js release-assets/main.js
-          cp release-repo/manifest.json release-assets/manifest.json
-          cp release-repo/src/styles.css release-assets/styles.css
+          cp src/dist/main.js release-assets/main.js
+          cp manifest.json release-assets/manifest.json
+          cp src/styles.css release-assets/styles.css
 
       - name: Upload release assets
         uses: actions/upload-artifact@v7
@@ -161,12 +80,9 @@ jobs:
 
   create-release:
     needs: build
-    if: ${{ github.event.inputs.create_release == 'true' }}
     runs-on: ubuntu-latest
-
     permissions:
-      contents: read
-
+      contents: write
     steps:
       - name: Download release assets
         uses: actions/download-artifact@v8
@@ -174,17 +90,17 @@ jobs:
           name: release-assets
           path: release-assets
 
-      # Marketplace installs download these three GitHub Release assets.
       - name: Create GitHub Release
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
-          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # The tag has no v-prefix because it must match manifest.json exactly.
           gh release create "$VERSION" \
             "release-assets/main.js#main.js" \
             "release-assets/manifest.json#manifest.json" \
             "release-assets/styles.css#styles.css" \
-            --repo "summerdawn-ai/obsidian-${{ inputs.plugin_name }}" \
+            --target "$GITHUB_SHA" \
             --title "$VERSION" \
             --generate-notes
