@@ -84,6 +84,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out code for release notes
+        uses: actions/checkout@v7
+
       - name: Download release assets
         uses: actions/download-artifact@v8
         with:
