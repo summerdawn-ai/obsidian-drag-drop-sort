@@ -1,3 +1,5 @@
+/* Obsidian's public API contains intentionally untyped internals; the plugin narrows them at its boundaries. */
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 import {
 	Menu,
 	Platform,
