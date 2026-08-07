@@ -1,7 +1,7 @@
 # Builds and releases this plugin for the Obsidian Community Plugins directory.
 # https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin
 name: Release
-run-name: Release v${{ inputs.version }}
+run-name: Release ${{ inputs.version }}
 
 on:
   workflow_dispatch:
