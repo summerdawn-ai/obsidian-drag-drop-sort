@@ -241,12 +241,14 @@ export class DragHandler {
 	private resolveRowTarget(
 		e: DragEvent
 	): { el: HTMLElement; file: TAbstractFile } | null {
-		const target = e.target instanceof Element ? e.target : null;
-		const el = target?.closest('.tree-item-self');
-		if (!(el instanceof HTMLElement)) return null;
+		const target = e.targetNode?.instanceOf(Element) ? e.targetNode : null;
+		const el = target?.instanceOf(HTMLElement)
+			? target.closest('.tree-item-self')
+			: null;
+		if (!el?.instanceOf(HTMLElement)) return null;
 
 		const row = el.closest('.tree-item');
-		if (!(row instanceof HTMLElement)) return null;
+		if (!row?.instanceOf(HTMLElement)) return null;
 
 		const file = this.getFileForRow(row);
 		return file ? { el, file } : null;
@@ -267,9 +269,9 @@ export class DragHandler {
 			const next = placeholder.nextElementSibling;
 			const previous = placeholder.previousElementSibling;
 			const row =
-				next instanceof HTMLElement && next.classList.contains('tree-item')
+				next?.instanceOf(HTMLElement) && next.classList.contains('tree-item')
 					? next
-					: previous instanceof HTMLElement &&
+					: previous?.instanceOf(HTMLElement) &&
 						  previous.classList.contains('tree-item')
 						? previous
 						: null;
@@ -286,24 +288,24 @@ export class DragHandler {
 			}
 		}
 
-		const target = e.target instanceof Element ? e.target : null;
+		const target = e.targetNode?.instanceOf(Element) ? e.targetNode : null;
 		const children = target?.closest('.tree-item-children');
 		if (!children) return null;
 
 		const rows = Array.from(children.children).filter(
 			(child): child is HTMLElement =>
-				child instanceof HTMLElement && child.classList.contains('tree-item')
+				child.instanceOf(HTMLElement) && child.classList.contains('tree-item')
 		);
 		for (const row of rows) {
 			// Use row midpoints to turn a continuous pointer position into a stable
 			// before/after insertion choice.
 			const self = row.querySelector('.tree-item-self');
-			if (!(self instanceof HTMLElement)) continue;
+			if (!self?.instanceOf(HTMLElement)) continue;
 			const rect = self.getBoundingClientRect();
 			if (e.clientY < rect.top + rect.height / 2) {
 				const file = this.getFileForRow(row);
 				const el = row.querySelector('.tree-item-self');
-				return file && el instanceof HTMLElement
+				return file && el?.instanceOf(HTMLElement)
 					? { row, el, file, insertBefore: true }
 					: null;
 			}
@@ -313,7 +315,7 @@ export class DragHandler {
 		if (!row) return null;
 		const file = this.getFileForRow(row);
 		const el = row.querySelector('.tree-item-self');
-		return file && el instanceof HTMLElement
+		return file && el?.instanceOf(HTMLElement)
 			? { row, el, file, insertBefore: false }
 			: null;
 	}
