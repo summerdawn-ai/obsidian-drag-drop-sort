@@ -6,7 +6,7 @@ import {
 	TFolder,
 	WorkspaceLeaf,
 } from 'obsidian';
-import { CustomSortSettings, DEFAULT_SETTINGS } from './types';
+import { CustomSortSettings, DEFAULT_SETTINGS, FileExplorerItem, FileExplorerView } from './types';
 import { sortItems } from './sorter';
 import { DragHandler } from './drag-handler';
 
@@ -42,16 +42,20 @@ const MOVE_ACTIONS: Array<{
  * Monkey-patch a method on an object's prototype.
  * Returns an uninstaller function.
  */
+type PrototypeTarget = { constructor: { prototype: Record<string, unknown> } };
+type ExplorerMethod = (this: FileExplorerView, folder: TFolder) => FileExplorerItem[];
+
 function patchPrototype(
-	obj: any,
+	obj: PrototypeTarget,
 	methodName: string,
-	factory: (original: (...args: any[]) => any) => (...args: any[]) => any
+	factory: (original: ExplorerMethod) => ExplorerMethod
 ): () => void {
 	// Obsidian recreates views during layout changes, so patch the shared
 	// prototype and return the exact inverse operation for plugin unload.
 	const proto = obj.constructor.prototype;
 	const original = proto[methodName];
-	proto[methodName] = factory(original);
+	if (typeof original !== 'function') return () => undefined;
+	proto[methodName] = factory(original as ExplorerMethod);
 	return () => {
 		proto[methodName] = original;
 	};
@@ -125,7 +129,7 @@ export default class CustomSortPlugin extends Plugin {
 		// Trigger re-sort to restore default order
 		const leaf = this.getFileExplorerLeaf();
 		if (leaf) {
-			(leaf.view as any).requestSort?.();
+			(leaf.view as unknown as FileExplorerView).requestSort?.();
 		}
 	}
 
@@ -152,7 +156,7 @@ export default class CustomSortPlugin extends Plugin {
 	requestSort(): void {
 		const leaf = this.getFileExplorerLeaf();
 		if (leaf) {
-			(leaf.view as any).requestSort?.();
+			(leaf.view as unknown as FileExplorerView).requestSort?.();
 		}
 		this.scheduleDragSetup();
 	}
@@ -163,21 +167,22 @@ export default class CustomSortPlugin extends Plugin {
 		const leaf = this.getFileExplorerLeaf();
 		if (!leaf) return;
 
-		const view = leaf.view as any;
+		const view = leaf.view as unknown as FileExplorerView & PrototypeTarget;
 		if (!view || typeof view.getSortedFolderItems !== 'function') {
 			return;
 		}
 
 		if (this.patched) return;
 
-		const plugin = this;
+		const getPlugin = (): CustomSortPlugin => this;
 
 		this.uninstallPatch = patchPrototype(
 			view,
 			'getSortedFolderItems',
 			(original) =>
-				function (this: any, folder: TFolder) {
+				function (this: FileExplorerView, folder: TFolder) {
 					const items = original.call(this, folder);
+					const plugin = getPlugin();
 
 					// Preserve Obsidian's normal ordering whenever this folder has no
 					// saved custom order.
@@ -199,7 +204,7 @@ export default class CustomSortPlugin extends Plugin {
 		});
 
 		// Trigger initial sort
-		view.requestSort();
+		view.requestSort?.();
 		this.scheduleDragSetup();
 	}
 
@@ -211,13 +216,13 @@ export default class CustomSortPlugin extends Plugin {
 			this.dragSetupTimer = null;
 			const leaf = this.getFileExplorerLeaf();
 			if (leaf) {
-				this.dragHandler.setup(leaf.view as any);
+				this.dragHandler.setup(leaf.view as unknown as FileExplorerView);
 			}
 		}, 100);
 	}
 
 	/** Sort items using custom order — interspersed files & folders. */
-	sortExplorerItems(items: any[], order: string[]): any[] {
+	sortExplorerItems(items: FileExplorerItem[], order: string[]): FileExplorerItem[] {
 		return sortItems(items, order);
 	}
 

@@ -1,4 +1,5 @@
 import { TFile, TFolder } from 'obsidian';
+import type { FileExplorerItem } from './types';
 
 /**
  * Sort an array of Obsidian File explorer items according to the custom order.
@@ -8,9 +9,9 @@ import { TFile, TFolder } from 'obsidian';
  * Items NOT in the order array come after: folders first (alphabetical), then files (alphabetical).
  */
 export function sortItems(
-	items: any[],
+	items: FileExplorerItem[],
 	order: string[]
-): any[] {
+): FileExplorerItem[] {
 	if (order.length === 0) return items;
 
 	const orderMap = new Map<string, number>();
@@ -19,9 +20,9 @@ export function sortItems(
 		orderMap.set(order[i], i);
 	}
 
-	const inOrder: any[] = [];
-	const unknownFolders: any[] = [];
-	const unknownFiles: any[] = [];
+	const inOrder: Array<{ item: FileExplorerItem; pos: number }> = [];
+	const unknownFolders: FileExplorerItem[] = [];
+	const unknownFiles: FileExplorerItem[] = [];
 
 	for (const item of items) {
 		if (!item || !item.file) continue;
@@ -58,7 +59,7 @@ export function sortItems(
  * Rebuild the order array for a folder after a drag-and-drop operation.
  * Simply snapshot the current visual order of all items in the folder.
  */
-export function buildOrderFromItems(items: any[]): string[] {
+export function buildOrderFromItems(items: FileExplorerItem[]): string[] {
 	// The explorer rows are already in visual order, so a snapshot is enough.
 	return items
 		.filter((item) => item && item.file)

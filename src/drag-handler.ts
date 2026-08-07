@@ -1,5 +1,6 @@
 import { TAbstractFile, TFolder } from 'obsidian';
 import type CustomSortPlugin from './main';
+import type { FileExplorerItem, FileExplorerView } from './types';
 
 interface DragState {
 	draggedEl: HTMLElement | null;
@@ -38,12 +39,12 @@ export class DragHandler {
 	/**
 	 * Set up drag-and-drop on all items in the File explorer.
 	 */
-	setup(explorerView: any): void {
+	setup(explorerView: FileExplorerView): void {
 		this.cleanup();
 
 		// Rebind to the current view because Obsidian may replace its row elements
 		// after a refresh or layout change.
-		const fileItems: Record<string, any> = explorerView.fileItems;
+		const fileItems = explorerView.fileItems;
 		if (!fileItems) return;
 
 		const explorerEl = explorerView.containerEl?.querySelector(
@@ -103,7 +104,8 @@ export class DragHandler {
 				this.showPlaceholder(target.el, target.insertBefore);
 			};
 
-			const onExplorerDrop = async (e: DragEvent) => {
+			const onExplorerDrop = (e: DragEvent) => {
+				void (async () => {
 				if (!this.state.draggedFile) return;
 
 				const rowTarget = this.resolveRowTarget(e);
@@ -132,6 +134,7 @@ export class DragHandler {
 				e.preventDefault();
 				e.stopImmediatePropagation();
 				await this.handleDrop(e, target.el, target.file, target.insertBefore);
+				})();
 			};
 
 			explorerEl.addEventListener('dragenter', onExplorerDragEnter, true);
@@ -159,7 +162,7 @@ export class DragHandler {
 			this.visibleByParent.get(parentPath)!.add(item.file.name);
 		}
 
-		const childrenByParent = new Map<string, { item: any; el: HTMLElement }[]>();
+		const childrenByParent = new Map<string, { item: FileExplorerItem; el: HTMLElement }[]>();
 
 		for (const item of Object.values(fileItems)) {
 			if (!item || !item.file || !item.selfEl) continue;
@@ -183,7 +186,7 @@ export class DragHandler {
 		}
 	}
 
-	private setupItemDrag(el: HTMLElement, item: any): void {
+	private setupItemDrag(el: HTMLElement, item: FileExplorerItem): void {
 		el.addClass('drag-drop-sort-draggable');
 
 		const file: TAbstractFile = item.file;
@@ -214,13 +217,15 @@ export class DragHandler {
 			this.handleDragOver(e, el, file);
 		};
 
-		const onDrop = async (e: DragEvent) => {
+		const onDrop = (e: DragEvent) => {
+			void (async () => {
 			if (!this.state.draggedFile) return;
 			if (this.isSameFile(this.state.draggedFile, file)) return;
 
 			const rect = el.getBoundingClientRect();
 			const insertBefore = e.clientY < rect.top + rect.height / 2;
 			await this.handleDrop(e, el, file, insertBefore);
+			})();
 		};
 
 		el.addEventListener('dragstart', onDragStart);

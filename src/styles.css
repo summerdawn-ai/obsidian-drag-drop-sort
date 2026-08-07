@@ -24,8 +24,9 @@
 	background-color: var(--background-modifier-hover);
 }
 
-.nav-files-container .tree-item.is-being-dragged-over {
-	background-color: transparent !important;
-	outline: none !important;
-	box-shadow: none !important;
+/* Higher specificity preserves the core drag-over override without !important. */
+html body .workspace-leaf-content .nav-files-container .tree-item.is-being-dragged-over {
+	background-color: transparent;
+	outline: none;
+	box-shadow: none;
 }
