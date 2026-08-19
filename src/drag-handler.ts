@@ -7,9 +7,15 @@ interface DragState {
 	draggedEl: HTMLElement | null;
 	draggedFile: TAbstractFile | null;
 	placeholder: HTMLElement | null;
-	/** The folder row currently being treated as a "drop onto folder" target (empty/collapsed). */
-	folderDropTarget: { el: HTMLElement; folder: TFolder } | null;
+	/** The folder row currently being treated as a direct drop target. */
+	folderDropTarget: {
+		el: HTMLElement;
+		folder: TFolder;
+		autoExpanded: boolean;
+	} | null;
 }
+
+const FOLDER_AUTO_EXPAND_DELAY_MS = 2000;
 
 /**
  * Handles drag-and-drop reordering in the File explorer.
@@ -30,6 +36,7 @@ export class DragHandler {
 		folderDropTarget: null,
 	};
 	private cleanupFns: (() => void)[] = [];
+	private folderExpandTimer: number | null = null;
 	/** Map of parentPath -> set of visible child names (from rendered explorer rows). */
 	private visibleByParent: Map<string, Set<string>> = new Map();
 	/** Map of parentPath -> visible child names in their rendered DOM order. */
@@ -390,10 +397,29 @@ export class DragHandler {
 			return;
 		}
 
-		if (file instanceof TFolder && this.isFolderEmptyOrCollapsed(file)) {
+		if (
+			file instanceof TFolder &&
+			this.isFolderEmptyOrCollapsed(el, file)
+		) {
 
 			this.removePlaceholder();
 			this.setFolderDropTarget(el, file);
+			return;
+		}
+
+		if (
+			file instanceof TFolder &&
+			this.state.folderDropTarget?.el === el &&
+			this.state.folderDropTarget.autoExpanded
+		) {
+			this.removePlaceholder();
+			return;
+		}
+
+		const firstChildTarget = this.getFirstChildTarget(el, file, e.clientY);
+		if (firstChildTarget) {
+			this.clearFolderDropTarget();
+			this.showPlaceholder(firstChildTarget.el, true);
 			return;
 		}
 
@@ -489,10 +515,16 @@ export class DragHandler {
 				}
 			}
 
-			this.applyReorderToEmptyFolder(sourceParent, targetFolder.path, draggedName);
+			this.applyMoveIntoFolder(sourceParent, targetFolder.path, draggedName);
 			this.clearFolderDropTarget();
 			await this.plugin.saveSettings();
 			this.cleanupStaleOrders();
+			return;
+		}
+
+		const firstChildTarget = this.getFirstChildTarget(el, file, e.clientY);
+		if (firstChildTarget) {
+			await this.handleDrop(e, firstChildTarget.el, firstChildTarget.file, true);
 			return;
 		}
 
@@ -554,10 +586,24 @@ export class DragHandler {
 		return first !== null && second !== null && first.path === second.path;
 	}
 
-	// ── Empty / collapsed folder drop target ─────────────────
+	// ── Folder-header drop target ────────────────────────────
 
-	private isFolderEmptyOrCollapsed(folder: TFolder): boolean {
-		// Check visible children: if any visible child exists and is rendered, folder is "non-empty" for drop purposes
+	private isFolderCollapsed(el: HTMLElement): boolean {
+		const row = el.closest('.tree-item');
+		return (
+			row?.classList.contains('is-collapsed') === true ||
+			(row !== null &&
+				!row.querySelector(':scope > .tree-item-children'))
+		);
+	}
+
+	private isFolderEmptyOrCollapsed(
+		el: HTMLElement,
+		folder: TFolder
+	): boolean {
+		if (this.isFolderCollapsed(el)) return true;
+
+		// A folder with no rendered children has no row gap to target.
 		for (const child of folder.children) {
 			if (this.isVisible(folder.path, child.name)) return false;
 		}
@@ -568,57 +614,117 @@ export class DragHandler {
 		if (this.state.folderDropTarget?.el === el) return; // already active
 		this.clearFolderDropTarget();
 		el.addClass('drag-drop-sort-drop-folder');
-		this.state.folderDropTarget = { el, folder };
+		this.state.folderDropTarget = { el, folder, autoExpanded: false };
+		this.scheduleFolderExpansion(el, folder);
+	}
+
+	private scheduleFolderExpansion(el: HTMLElement, folder: TFolder): void {
+		if (folder.children.length === 0 || !this.isFolderCollapsed(el)) return;
+
+		this.folderExpandTimer = window.setTimeout(() => {
+			this.folderExpandTimer = null;
+			const target = this.state.folderDropTarget;
+			if (
+				!this.state.draggedFile ||
+				!target ||
+				target.el !== el ||
+				target.folder !== folder ||
+				!this.isFolderCollapsed(el)
+			) {
+				return;
+			}
+
+			const collapseIcon = el.querySelector<HTMLElement>(
+				':scope > .collapse-icon'
+			);
+			if (!collapseIcon) {
+				console.warn(
+					'Drag and Drop Sort: unable to auto-expand folder without a collapse control.',
+					folder.path
+				);
+				return;
+			}
+
+			collapseIcon.click();
+			target.autoExpanded = true;
+			window.setTimeout(() => this.refreshVisibleOrder(), 0);
+		}, FOLDER_AUTO_EXPAND_DELAY_MS);
 	}
 
 	private clearFolderDropTarget(): void {
+		if (this.folderExpandTimer !== null) {
+			window.clearTimeout(this.folderExpandTimer);
+			this.folderExpandTimer = null;
+		}
 		if (this.state.folderDropTarget) {
 			this.state.folderDropTarget.el.removeClass('drag-drop-sort-drop-folder');
 			this.state.folderDropTarget = null;
 		}
 	}
 
-	private applyReorderToEmptyFolder(
+	private getFirstChildTarget(
+		el: HTMLElement,
+		file: TAbstractFile,
+		clientY: number
+	): { el: HTMLElement; file: TAbstractFile } | null {
+		if (!(file instanceof TFolder) || this.isFolderEmptyOrCollapsed(el, file)) {
+			return null;
+		}
+
+		const rect = el.getBoundingClientRect();
+		if (clientY < rect.top + rect.height / 2) return null;
+
+		const row = el.closest('.tree-item');
+		const childRows = row?.querySelector(':scope > .tree-item-children');
+		if (!childRows) return null;
+
+		for (const child of Array.from(childRows.children)) {
+			if (
+				!child.instanceOf(HTMLElement) ||
+				!child.classList.contains('tree-item') ||
+				!child.offsetParent
+			) {
+				continue;
+			}
+
+			const childEl = child.querySelector(':scope > .tree-item-self');
+			const childFile = this.getFileForRow(child);
+			if (childEl?.instanceOf(HTMLElement) && childFile) {
+				return { el: childEl, file: childFile };
+			}
+		}
+
+		return null;
+	}
+
+	private refreshVisibleOrder(): void {
+		const leaf = this.plugin.getFileExplorerLeaf();
+		if (!leaf) return;
+
+		const view = leaf.view as unknown as FileExplorerView;
+		if (view.fileItems) {
+			this.captureVisibleOrder(view.fileItems);
+		}
+	}
+
+	private applyMoveIntoFolder(
 		sourceParent: string,
 		targetFolderPath: string,
 		draggedName: string
 	): void {
-		// Remove from source
-		if (sourceParent !== targetFolderPath) {
-			const sourceWorking = this.getWorkingOrder(sourceParent).filter(
-				(name) => name !== draggedName
-			);
-			if (sourceWorking.length > 0) {
-				this.plugin.settings.orders[sourceParent] = this.mergeHiddenBack(
-					sourceParent,
-					sourceWorking
-				);
-			} else {
-				delete this.plugin.settings.orders[sourceParent];
-			}
-		} else {
-			// Same parent — just ensure it's removed from current order
-			const working = this.getWorkingOrder(targetFolderPath).filter(
-				(name) => name !== draggedName
-			);
-			if (working.length > 0) {
-				this.plugin.settings.orders[targetFolderPath] = this.mergeHiddenBack(
-					targetFolderPath,
-					working
-				);
-			}
-		}
+		if (sourceParent === targetFolderPath) return;
 
-		// Insert at position 0 in target
-		const destinationWorking = this.getWorkingOrder(targetFolderPath).filter(
+		const sourceWorking = this.getWorkingOrder(sourceParent).filter(
 			(name) => name !== draggedName
 		);
-		destinationWorking.splice(0, 0, draggedName);
-
-		this.plugin.settings.orders[targetFolderPath] = this.mergeHiddenBack(
-			targetFolderPath,
-			destinationWorking
-		);
+		if (sourceWorking.length > 0) {
+			this.plugin.settings.orders[sourceParent] = this.mergeHiddenBack(
+				sourceParent,
+				sourceWorking
+			);
+		} else {
+			delete this.plugin.settings.orders[sourceParent];
+		}
 	}
 
 	private canMoveToParent(dragged: TAbstractFile, destinationParent: string): boolean {
