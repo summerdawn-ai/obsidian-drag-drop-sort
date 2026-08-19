@@ -7,9 +7,15 @@ interface DragState {
 	draggedEl: HTMLElement | null;
 	draggedFile: TAbstractFile | null;
 	placeholder: HTMLElement | null;
-	/** The folder row currently being treated as a "drop onto folder" target (empty/collapsed). */
-	folderDropTarget: { el: HTMLElement; folder: TFolder } | null;
+	/** The folder row currently being treated as a direct drop target. */
+	folderDropTarget: {
+		el: HTMLElement;
+		folder: TFolder;
+		autoExpanded: boolean;
+	} | null;
 }
+
+const FOLDER_AUTO_EXPAND_DELAY_MS = 2000;
 
 /**
  * Handles drag-and-drop reordering in the File explorer.
@@ -30,6 +36,7 @@ export class DragHandler {
 		folderDropTarget: null,
 	};
 	private cleanupFns: (() => void)[] = [];
+	private folderExpandTimer: number | null = null;
 	/** Map of parentPath -> set of visible child names (from rendered explorer rows). */
 	private visibleByParent: Map<string, Set<string>> = new Map();
 	/** Map of parentPath -> visible child names in their rendered DOM order. */
@@ -400,6 +407,15 @@ export class DragHandler {
 			return;
 		}
 
+		if (
+			file instanceof TFolder &&
+			this.state.folderDropTarget?.el === el &&
+			this.state.folderDropTarget.autoExpanded
+		) {
+			this.removePlaceholder();
+			return;
+		}
+
 		if (!this.canDropOnTarget(this.state.draggedFile, file)) return;
 
 		this.clearFolderDropTarget();
@@ -559,10 +575,20 @@ export class DragHandler {
 
 	// ── Folder-header drop target ────────────────────────────
 
-	private isFolderEmptyOrCollapsed(el: HTMLElement, folder: TFolder): boolean {
+	private isFolderCollapsed(el: HTMLElement): boolean {
 		const row = el.closest('.tree-item');
-		if (row?.classList.contains('is-collapsed')) return true;
-		if (!row?.querySelector(':scope > .tree-item-children')) return true;
+		return (
+			row?.classList.contains('is-collapsed') === true ||
+			(row !== null &&
+				!row.querySelector(':scope > .tree-item-children'))
+		);
+	}
+
+	private isFolderEmptyOrCollapsed(
+		el: HTMLElement,
+		folder: TFolder
+	): boolean {
+		if (this.isFolderCollapsed(el)) return true;
 
 		// A folder with no rendered children has no row gap to target.
 		for (const child of folder.children) {
@@ -575,13 +601,61 @@ export class DragHandler {
 		if (this.state.folderDropTarget?.el === el) return; // already active
 		this.clearFolderDropTarget();
 		el.addClass('drag-drop-sort-drop-folder');
-		this.state.folderDropTarget = { el, folder };
+		this.state.folderDropTarget = { el, folder, autoExpanded: false };
+		this.scheduleFolderExpansion(el, folder);
+	}
+
+	private scheduleFolderExpansion(el: HTMLElement, folder: TFolder): void {
+		if (folder.children.length === 0 || !this.isFolderCollapsed(el)) return;
+
+		this.folderExpandTimer = window.setTimeout(() => {
+			this.folderExpandTimer = null;
+			const target = this.state.folderDropTarget;
+			if (
+				!this.state.draggedFile ||
+				!target ||
+				target.el !== el ||
+				target.folder !== folder ||
+				!this.isFolderCollapsed(el)
+			) {
+				return;
+			}
+
+			const collapseIcon = el.querySelector<HTMLElement>(
+				':scope > .collapse-icon'
+			);
+			if (!collapseIcon) {
+				console.warn(
+					'Drag and Drop Sort: unable to auto-expand folder without a collapse control.',
+					folder.path
+				);
+				return;
+			}
+
+			collapseIcon.click();
+			target.autoExpanded = true;
+			window.setTimeout(() => this.refreshVisibleOrder(), 0);
+		}, FOLDER_AUTO_EXPAND_DELAY_MS);
 	}
 
 	private clearFolderDropTarget(): void {
+		if (this.folderExpandTimer !== null) {
+			window.clearTimeout(this.folderExpandTimer);
+			this.folderExpandTimer = null;
+		}
 		if (this.state.folderDropTarget) {
 			this.state.folderDropTarget.el.removeClass('drag-drop-sort-drop-folder');
 			this.state.folderDropTarget = null;
+		}
+	}
+
+	private refreshVisibleOrder(): void {
+		const leaf = this.plugin.getFileExplorerLeaf();
+		if (!leaf) return;
+
+		const view = leaf.view as unknown as FileExplorerView;
+		if (view.fileItems) {
+			this.captureVisibleOrder(view.fileItems);
 		}
 	}
 
