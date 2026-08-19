@@ -41,7 +41,7 @@ You can also right-click an item and use **Drag and Drop Sort commands** to move
 
 ## How it Works
 
-The plugin patches `getSortedFolderItems()` on the internal File explorer view, makes visible tree items draggable, and saves each changed folder's order to `data.json`. Dropping across folders also moves the item through Obsidian's file manager. Hidden rows and unsupported file types are excluded from positional calculations so the drop position matches what is visible.
+The plugin patches `getSortedFolderItems()` on the internal File explorer view, makes visible tree items draggable, and saves each changed folder's order to `data.json`. When a folder has no saved custom order, its currently rendered DOM order is captured when dragging starts before the new position is applied. Dropping across folders also moves the item through Obsidian's file manager. Hidden rows and unsupported file types are excluded from positional calculations so the drop position matches what is visible.
 
 ### Data Format
 

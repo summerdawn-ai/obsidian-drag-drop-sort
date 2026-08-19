@@ -32,6 +32,8 @@ export class DragHandler {
 	private cleanupFns: (() => void)[] = [];
 	/** Map of parentPath -> set of visible child names (from rendered explorer rows). */
 	private visibleByParent: Map<string, Set<string>> = new Map();
+	/** Map of parentPath -> visible child names in their rendered DOM order. */
+	private visibleOrderByParent: Map<string, string[]> = new Map();
 
 	constructor(plugin: CustomSortPlugin) {
 		this.plugin = plugin;
@@ -148,20 +150,7 @@ export class DragHandler {
 			});
 		}
 
-		// Build visible-items map from currently rendered rows.
-		this.visibleByParent.clear();
-		for (const item of Object.values(fileItems)) {
-			if (!item || !item.file || !item.selfEl) continue;
-			if (item.file.path === '') continue;
-			const itemEl = item.selfEl as HTMLElement;
-			if (itemEl.offsetParent === null) continue;
-
-			const parentPath: string = item.file.parent?.path ?? '';
-			if (!this.visibleByParent.has(parentPath)) {
-				this.visibleByParent.set(parentPath, new Set());
-			}
-			this.visibleByParent.get(parentPath)!.add(item.file.name);
-		}
+		this.captureVisibleOrder(fileItems);
 
 		const childrenByParent = new Map<string, { item: FileExplorerItem; el: HTMLElement }[]>();
 
@@ -182,12 +171,58 @@ export class DragHandler {
 
 		for (const [, children] of childrenByParent) {
 			for (const { item, el } of children) {
-				this.setupItemDrag(el, item);
+				this.setupItemDrag(el, item, fileItems);
 			}
 		}
 	}
 
-	private setupItemDrag(el: HTMLElement, item: FileExplorerItem): void {
+	private captureVisibleOrder(fileItems: Record<string, FileExplorerItem>): void {
+		this.visibleByParent.clear();
+		this.visibleOrderByParent.clear();
+		const visibleChildrenByParent = new Map<
+			string,
+			{ name: string; el: HTMLElement }[]
+		>();
+		for (const item of Object.values(fileItems)) {
+			if (!item || !item.file || !item.selfEl) continue;
+			if (item.file.path === '') continue;
+			const itemEl = item.selfEl as HTMLElement;
+			if (itemEl.offsetParent === null) continue;
+
+			const parentPath: string = item.file.parent?.path ?? '';
+			if (!this.visibleByParent.has(parentPath)) {
+				this.visibleByParent.set(parentPath, new Set());
+			}
+			this.visibleByParent.get(parentPath)!.add(item.file.name);
+			if (!visibleChildrenByParent.has(parentPath)) {
+				visibleChildrenByParent.set(parentPath, []);
+			}
+			visibleChildrenByParent.get(parentPath)!.push({
+				name: item.file.name,
+				el: itemEl,
+			});
+		}
+
+		for (const [parentPath, children] of visibleChildrenByParent) {
+			children.sort((a, b) => {
+				if (a.el === b.el) return 0;
+				return a.el.compareDocumentPosition(b.el) &
+					Node.DOCUMENT_POSITION_FOLLOWING
+					? -1
+					: 1;
+			});
+			this.visibleOrderByParent.set(
+				parentPath,
+				children.map((child) => child.name)
+			);
+		}
+	}
+
+	private setupItemDrag(
+		el: HTMLElement,
+		item: FileExplorerItem,
+		fileItems: Record<string, FileExplorerItem>
+	): void {
 		el.addClass('drag-drop-sort-draggable');
 
 		const file: TAbstractFile = item.file;
@@ -195,6 +230,7 @@ export class DragHandler {
 		const onDragStart = (e: DragEvent) => {
 			// Store the source independently of the DOM row; the row can move while
 			// the pointer is being dragged.
+			this.captureVisibleOrder(fileItems);
 			this.state.draggedEl = el;
 			this.state.draggedFile = file;
 			this.removePlaceholder();
@@ -654,6 +690,9 @@ export class DragHandler {
 		const folder = this.plugin.app.vault.getFolderByPath(parentPath);
 		if (!folder) return [];
 
+		const renderedOrder = this.visibleOrderByParent.get(parentPath);
+		if (renderedOrder) return renderedOrder;
+
 		return folder.children
 			.map((c) => c.name)
 			.filter((name) => this.isVisible(parentPath, name));
@@ -754,6 +793,7 @@ export class DragHandler {
 		}
 		this.cleanupFns = [];
 		this.visibleByParent.clear();
+		this.visibleOrderByParent.clear();
 	}
 }
 
