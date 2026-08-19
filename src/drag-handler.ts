@@ -390,7 +390,10 @@ export class DragHandler {
 			return;
 		}
 
-		if (file instanceof TFolder && this.isFolderEmptyOrCollapsed(file)) {
+		if (
+			file instanceof TFolder &&
+			this.isFolderEmptyOrCollapsed(el, file)
+		) {
 
 			this.removePlaceholder();
 			this.setFolderDropTarget(el, file);
@@ -489,7 +492,7 @@ export class DragHandler {
 				}
 			}
 
-			this.applyReorderToEmptyFolder(sourceParent, targetFolder.path, draggedName);
+			this.applyMoveIntoFolder(sourceParent, targetFolder.path, draggedName);
 			this.clearFolderDropTarget();
 			await this.plugin.saveSettings();
 			this.cleanupStaleOrders();
@@ -554,10 +557,14 @@ export class DragHandler {
 		return first !== null && second !== null && first.path === second.path;
 	}
 
-	// ── Empty / collapsed folder drop target ─────────────────
+	// ── Folder-header drop target ────────────────────────────
 
-	private isFolderEmptyOrCollapsed(folder: TFolder): boolean {
-		// Check visible children: if any visible child exists and is rendered, folder is "non-empty" for drop purposes
+	private isFolderEmptyOrCollapsed(el: HTMLElement, folder: TFolder): boolean {
+		const row = el.closest('.tree-item');
+		if (row?.classList.contains('is-collapsed')) return true;
+		if (!row?.querySelector(':scope > .tree-item-children')) return true;
+
+		// A folder with no rendered children has no row gap to target.
 		for (const child of folder.children) {
 			if (this.isVisible(folder.path, child.name)) return false;
 		}
@@ -578,47 +585,24 @@ export class DragHandler {
 		}
 	}
 
-	private applyReorderToEmptyFolder(
+	private applyMoveIntoFolder(
 		sourceParent: string,
 		targetFolderPath: string,
 		draggedName: string
 	): void {
-		// Remove from source
-		if (sourceParent !== targetFolderPath) {
-			const sourceWorking = this.getWorkingOrder(sourceParent).filter(
-				(name) => name !== draggedName
-			);
-			if (sourceWorking.length > 0) {
-				this.plugin.settings.orders[sourceParent] = this.mergeHiddenBack(
-					sourceParent,
-					sourceWorking
-				);
-			} else {
-				delete this.plugin.settings.orders[sourceParent];
-			}
-		} else {
-			// Same parent — just ensure it's removed from current order
-			const working = this.getWorkingOrder(targetFolderPath).filter(
-				(name) => name !== draggedName
-			);
-			if (working.length > 0) {
-				this.plugin.settings.orders[targetFolderPath] = this.mergeHiddenBack(
-					targetFolderPath,
-					working
-				);
-			}
-		}
+		if (sourceParent === targetFolderPath) return;
 
-		// Insert at position 0 in target
-		const destinationWorking = this.getWorkingOrder(targetFolderPath).filter(
+		const sourceWorking = this.getWorkingOrder(sourceParent).filter(
 			(name) => name !== draggedName
 		);
-		destinationWorking.splice(0, 0, draggedName);
-
-		this.plugin.settings.orders[targetFolderPath] = this.mergeHiddenBack(
-			targetFolderPath,
-			destinationWorking
-		);
+		if (sourceWorking.length > 0) {
+			this.plugin.settings.orders[sourceParent] = this.mergeHiddenBack(
+				sourceParent,
+				sourceWorking
+			);
+		} else {
+			delete this.plugin.settings.orders[sourceParent];
+		}
 	}
 
 	private canMoveToParent(dragged: TAbstractFile, destinationParent: string): boolean {
