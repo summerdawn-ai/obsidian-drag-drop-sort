@@ -416,6 +416,13 @@ export class DragHandler {
 			return;
 		}
 
+		const firstChildTarget = this.getFirstChildTarget(el, file, e.clientY);
+		if (firstChildTarget) {
+			this.clearFolderDropTarget();
+			this.showPlaceholder(firstChildTarget.el, true);
+			return;
+		}
+
 		if (!this.canDropOnTarget(this.state.draggedFile, file)) return;
 
 		this.clearFolderDropTarget();
@@ -512,6 +519,12 @@ export class DragHandler {
 			this.clearFolderDropTarget();
 			await this.plugin.saveSettings();
 			this.cleanupStaleOrders();
+			return;
+		}
+
+		const firstChildTarget = this.getFirstChildTarget(el, file, e.clientY);
+		if (firstChildTarget) {
+			await this.handleDrop(e, firstChildTarget.el, firstChildTarget.file, true);
 			return;
 		}
 
@@ -647,6 +660,41 @@ export class DragHandler {
 			this.state.folderDropTarget.el.removeClass('drag-drop-sort-drop-folder');
 			this.state.folderDropTarget = null;
 		}
+	}
+
+	private getFirstChildTarget(
+		el: HTMLElement,
+		file: TAbstractFile,
+		clientY: number
+	): { el: HTMLElement; file: TAbstractFile } | null {
+		if (!(file instanceof TFolder) || this.isFolderEmptyOrCollapsed(el, file)) {
+			return null;
+		}
+
+		const rect = el.getBoundingClientRect();
+		if (clientY < rect.top + rect.height / 2) return null;
+
+		const row = el.closest('.tree-item');
+		const childRows = row?.querySelector(':scope > .tree-item-children');
+		if (!childRows) return null;
+
+		for (const child of Array.from(childRows.children)) {
+			if (
+				!child.instanceOf(HTMLElement) ||
+				!child.classList.contains('tree-item') ||
+				!child.offsetParent
+			) {
+				continue;
+			}
+
+			const childEl = child.querySelector(':scope > .tree-item-self');
+			const childFile = this.getFileForRow(child);
+			if (childEl?.instanceOf(HTMLElement) && childFile) {
+				return { el: childEl, file: childFile };
+			}
+		}
+
+		return null;
 	}
 
 	private refreshVisibleOrder(): void {
