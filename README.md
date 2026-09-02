@@ -6,6 +6,8 @@ Plugin for Obsidian to provide custom drag & drop reordering in the File explore
 
 Drag and Drop Sort adds custom drag-and-drop ordering to Obsidian's File explorer. Files and folders can be freely interspersed, like in OneNote.
 
+![Drag and Drop Sort reorders files and folders in the Obsidian File explorer](docs/images/screenshot-desktop.png)
+
 ### Features
 
 - **Fully Custom Sort Order**: Customize sort order by dragging and dropping folders or notes directly in the File explorer.
