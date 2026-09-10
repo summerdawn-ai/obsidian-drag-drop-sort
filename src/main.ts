@@ -27,6 +27,9 @@ interface FileExplorerViewLike {
 }
 
 type MoveAction = 'up' | 'down' | 'top' | 'bottom';
+type SettingsFileSignature = string | null;
+
+const SETTINGS_FILE_POLL_INTERVAL_MS = 30_000;
 
 const MOVE_ACTIONS: Array<{
 	action: MoveAction;
@@ -69,9 +72,15 @@ export default class CustomSortPlugin extends Plugin {
 	private dragSetupTimer: number | null = null;
 	private patched = false;
 	private internalMoveDepth = 0;
+	private settingsFileSignature: SettingsFileSignature = null;
+	private checkingExternalSettings = false;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		await this.refreshSettingsFileSignature(
+			'capture the initial plugin data file signature'
+		);
+		this.startExternalSettingsMonitor();
 		this.dragHandler = new DragHandler(this);
 
 		// File explorer internals are not available until Obsidian has finished
@@ -144,7 +153,82 @@ export default class CustomSortPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+		await this.refreshSettingsFileSignature(
+			'refresh the plugin data file signature after saving settings'
+		);
 		this.requestSort();
+	}
+
+	private getSettingsDataPath(): string {
+		return `${this.app.vault.configDir}/plugins/${this.manifest.id}/data.json`;
+	}
+
+	private async readSettingsFileSignature(): Promise<SettingsFileSignature> {
+		const stat = await this.app.vault.adapter.stat(this.getSettingsDataPath());
+		if (!stat) return null;
+		return `${stat.mtime}:${stat.size}`;
+	}
+
+	private async refreshSettingsFileSignature(action: string): Promise<void> {
+		try {
+			this.settingsFileSignature = await this.readSettingsFileSignature();
+		} catch (error) {
+			console.warn(`[drag-drop-sort] Failed to ${action}.`, error);
+		}
+	}
+
+	private startExternalSettingsMonitor(): void {
+		// Plugin data lives under .obsidian/plugins/.../data.json, outside the
+		// normal vault content events that this plugin already listens to. Poll the
+		// file metadata so external sync tools such as OneDrive can be detected
+		// without paying the cost of calling loadData() every interval.
+		//
+		// This is deliberately defensive rather than a reload-before-save/rebase
+		// design: drag/drop and move commands operate on the explorer order the user
+		// is currently seeing, so reloading immediately before applying a move would
+		// invalidate that UI context and leave rebasing the intended move out of
+		// scope. A cheap metadata poll reduces the stale-data window without trying
+		// to eliminate the unavoidable final write race.
+		this.registerInterval(
+			window.setInterval(() => {
+				void this.checkForExternalSettingsChange();
+			}, SETTINGS_FILE_POLL_INTERVAL_MS)
+		);
+	}
+
+	private async checkForExternalSettingsChange(): Promise<void> {
+		if (this.checkingExternalSettings) return;
+		this.checkingExternalSettings = true;
+
+		try {
+			let nextSignature: SettingsFileSignature;
+			try {
+				nextSignature = await this.readSettingsFileSignature();
+			} catch (error) {
+				console.warn(
+					'[drag-drop-sort] Failed to stat the plugin data file while checking for external changes.',
+					error
+				);
+				return;
+			}
+
+			if (nextSignature === this.settingsFileSignature) return;
+
+			try {
+				await this.loadSettings();
+			} catch (error) {
+				console.warn(
+					'[drag-drop-sort] Failed to reload externally changed plugin settings.',
+					error
+				);
+				return;
+			}
+
+			this.settingsFileSignature = nextSignature;
+			this.requestSort();
+		} finally {
+			this.checkingExternalSettings = false;
+		}
 	}
 
 	/** Get the File explorer leaf (public for DragHandler). */
