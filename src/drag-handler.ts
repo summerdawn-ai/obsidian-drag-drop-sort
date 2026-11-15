@@ -234,7 +234,7 @@ export class DragHandler {
 
 		const file: TAbstractFile = item.file;
 
-		const onDragStart = (e: DragEvent) => {
+		const onDragStart = () => {
 			// Store the source independently of the DOM row; the row can move while
 			// the pointer is being dragged.
 			this.captureVisibleOrder(fileItems);
@@ -243,10 +243,6 @@ export class DragHandler {
 			this.removePlaceholder();
 			this.clearFolderDropTarget();
 			el.addClass('drag-drop-sort-dragging');
-			if (e.dataTransfer) {
-				e.dataTransfer.effectAllowed = 'move';
-				e.dataTransfer.setData('text/plain', file.path);
-			}
 		};
 
 		const onDragEnd = () => {
