@@ -243,18 +243,6 @@ export class DragHandler {
 			this.removePlaceholder();
 			this.clearFolderDropTarget();
 			el.addClass('drag-drop-sort-dragging');
-
-			// Deliberately leave `dataTransfer` alone. Obsidian's own dragstart
-			// handler already sets effectAllowed to 'all' and writes text/plain and
-			// text/uri-list as the obsidian:// URL. Forcing effectAllowed to 'move'
-			// breaks every drop target that asks for another effect: Obsidian's
-			// dragManager writes the requested dropEffect onto the event, the
-			// browser rejects it because 'move' does not permit it, the drag
-			// operation collapses to 'none' and no drop event is ever dispatched.
-			// Canvas requests 'copy', so files can no longer be dropped onto it;
-			// overwriting text/plain with the vault path would also replace
-			// Obsidian's URI payload. This plugin only needs the row and file
-			// captured above, so the native drag data stays untouched.
 		};
 
 		const onDragEnd = () => {
